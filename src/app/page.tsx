@@ -138,6 +138,7 @@ export default function Home() {
   const { 
     cart, 
     addToCart: addToServerCart, 
+    updateQuantity,
     removeItem: removeFromCart, 
     clearCart, 
     itemCount: cartItemCount 
