@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useRealtimeData } from '@/hooks/useRealtimeData';
+import { useCart } from '@/hooks/useCart';
 import { PaymentMethodCard, paymentMethodConfig } from '@/components/ui/payment-logos';
 import {
   Dialog,
@@ -128,6 +129,16 @@ const paymentMethods = Object.entries(paymentMethodConfig).map(([key, config]) =
 export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) {
   const { user, userData } = useAuth();
   
+  // Use cart hook for real-time cart sync with main page
+  const { 
+    cart, 
+    updateQuantity: updateCartItem, 
+    removeItem: removeCartItem, 
+    clearCart,
+    itemCount: cartItemCount 
+  } = useCart();
+  
+  // Use realtime data for orders, reservations, events, invoices
   const realtimeData = useRealtimeData({
     userId: user?.uid,
     isAdmin: false,
@@ -138,10 +149,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
   const reservations = (realtimeData.reservations || []) as Reservation[];
   const events = (realtimeData.events || []) as Event[];
   const invoices = (realtimeData.invoices || []) as Invoice[];
-  const cart = realtimeData.cart as Cart | null;
   const loading = realtimeData.loading;
-
-  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   
   // Calculate unpaid amounts
   const unpaidOrders = orders.filter((o) => 
@@ -163,40 +171,6 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [transactionReference, setTransactionReference] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
-
-  // Cart operations
-  const updateCartItem = async (menuItemId: string, quantity: number) => {
-    try {
-      await fetch('/api/cart', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user?.uid,
-          menuItemId,
-          quantity,
-        }),
-      });
-    } catch (error) {
-      toast.error('Failed to update cart');
-    }
-  };
-
-  const removeCartItem = async (menuItemId: string) => {
-    try {
-      await fetch('/api/cart', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: user?.uid,
-          menuItemId,
-          action: 'remove',
-        }),
-      });
-      toast.success('Item removed from cart');
-    } catch (error) {
-      toast.error('Failed to remove item');
-    }
-  };
 
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {

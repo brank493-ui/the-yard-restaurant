@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { useAuth } from '@/contexts/AuthContext';
+import { useCart } from '@/hooks/useCart';
 import { LoginModal } from '@/components/auth/LoginModal';
 import { RegisterModal } from '@/components/auth/RegisterModal';
 import { UserMenu } from '@/components/auth/UserMenu';
@@ -31,11 +32,6 @@ interface MenuItem {
   category: string;
   image?: string | null;
   featured: boolean;
-}
-
-interface CartItem extends MenuItem {
-  quantity: number;
-  notes?: string;
 }
 
 interface Order {
@@ -138,8 +134,16 @@ export default function Home() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [adminOpen, setAdminOpen] = useState(false);
   
+  // Unified cart hook - syncs with server and user dashboard
+  const { 
+    cart, 
+    addToCart: addToServerCart, 
+    removeItem: removeFromCart, 
+    clearCart, 
+    itemCount: cartItemCount 
+  } = useCart();
+  
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
-  const [cart, setCart] = useState<CartItem[]>([]);
   const [activeCategory, setActiveCategory] = useState('all');
   const [loading, setLoading] = useState(true);
   
@@ -169,14 +173,9 @@ export default function Home() {
   // Real-time listeners reference
   const unsubscribersRef = useRef<Unsubscribe[]>([]);
 
-  // Listen for checkout event from UserProfileModal
-  useEffect(() => {
-    const handleOpenCheckout = () => {
-      setCheckoutModalOpen(true);
-    };
-    window.addEventListener('openCheckout', handleOpenCheckout);
-    return () => window.removeEventListener('openCheckout', handleOpenCheckout);
-  }, []);
+  // Derived cart values
+  const cartItems = cart?.items || [];
+  const cartTotal = cart?.totalAmount || 0;
 
   // Real-time menu and gallery listener
   useEffect(() => {
@@ -287,71 +286,9 @@ export default function Home() {
     }
   }, []);
 
-  // Sync cart with server on mount and when user changes
-  useEffect(() => {
-    const syncCartWithServer = async () => {
-      if (user && cart.length > 0) {
-        try {
-          // Sync local cart to server when user logs in
-          await fetch('/api/cart', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId: user.uid,
-              localItems: cart.map(item => ({
-                menuItemId: item.id,
-                name: item.name,
-                price: item.price,
-                quantity: item.quantity,
-                image: item.image,
-              })),
-            }),
-          });
-        } catch (error) {
-          console.error('Failed to sync cart:', error);
-        }
-      }
-    };
-    
-    if (user) {
-      syncCartWithServer();
-    }
-  }, [user]);
-
-  const addToCart = async (item: MenuItem, quantity: number = 1, notes?: string) => {
-    // Optimistic update
-    setCart(prev => {
-      const existing = prev.find(i => i.id === item.id && i.notes === notes);
-      if (existing) {
-        return prev.map(i => (i.id === item.id && i.notes === notes) ? { ...i, quantity: i.quantity + quantity } : i);
-      }
-      return [...prev, { ...item, quantity, notes }];
-    });
-    
-    toast.success(lang === 'en' ? `Added ${quantity}x ${item.name} to cart` : `${quantity}x ${item.name} ajouté au panier`);
-    
-    // Sync with server if logged in
-    if (user) {
-      try {
-        await fetch('/api/cart', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.uid,
-            item: {
-              menuItemId: item.id,
-              name: item.name,
-              price: item.price,
-              quantity,
-              image: item.image,
-              notes,
-            },
-          }),
-        });
-      } catch (error) {
-        console.error('Failed to sync cart:', error);
-      }
-    }
+  // Handler for adding to cart using the unified hook
+  const addToCart = (item: MenuItem, quantity: number = 1, notes?: string) => {
+    addToServerCart(item, quantity, notes);
   };
 
   // Handler for opening item modal
@@ -362,81 +299,10 @@ export default function Home() {
 
   // Handler for order complete
   const handleOrderComplete = () => {
-    setCart([]);
+    clearCart();
     setProfileOpen(true);
   };
 
-  const removeFromCart = async (itemId: string) => {
-    // Optimistic update
-    setCart(prev => prev.filter(i => i.id !== itemId));
-    
-    // Sync with server if logged in
-    if (user) {
-      try {
-        await fetch('/api/cart', {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            userId: user.uid,
-            menuItemId: itemId,
-            action: 'remove',
-          }),
-        });
-      } catch (error) {
-        console.error('Failed to sync cart:', error);
-      }
-    }
-  };
-
-  const updateQuantity = async (itemId: string, delta: number) => {
-    // Optimistic update
-    setCart(prev => {
-      const item = prev.find(i => i.id === itemId);
-      if (item) {
-        const newQty = item.quantity + delta;
-        if (newQty <= 0) {
-          return prev.filter(i => i.id !== itemId);
-        }
-        return prev.map(i => i.id === itemId ? { ...i, quantity: newQty } : i);
-      }
-      return prev;
-    });
-    
-    // Sync with server if logged in
-    if (user) {
-      try {
-        const currentItem = cart.find(i => i.id === itemId);
-        if (currentItem) {
-          const newQty = currentItem.quantity + delta;
-          if (newQty <= 0) {
-            await fetch('/api/cart', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: user.uid,
-                menuItemId: itemId,
-                action: 'remove',
-              }),
-            });
-          } else {
-            await fetch('/api/cart', {
-              method: 'PATCH',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                userId: user.uid,
-                menuItemId: itemId,
-                quantity: newQty,
-              }),
-            });
-          }
-        }
-      } catch (error) {
-        console.error('Failed to sync cart:', error);
-      }
-    }
-  };
-
-  const cartTotal = cart.reduce((sum, item) => sum + item.price * item.quantity, 0);
   const filteredMenu = activeCategory === 'all' ? menuItems : menuItems.filter(item => item.category === activeCategory);
   const featuredItems = menuItems.filter(item => item.featured);
 
@@ -557,9 +423,9 @@ export default function Home() {
               title={user ? "My Dashboard" : "Login to view cart"}
             >
               <BookOpen className="h-5 w-5" />
-              {cart.length > 0 && (
+              {cartItemCount > 0 && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs w-5 h-5 rounded-full flex items-center justify-center font-bold">
-                  {cart.reduce((s, i) => s + i.quantity, 0)}
+                  {cartItemCount}
                 </span>
               )}
             </Button>
@@ -709,12 +575,12 @@ export default function Home() {
           <p className="text-center text-stone-400 mb-8">{t.menu.description}</p>
           
           {/* Cart Summary - Simple inline display */}
-          {cart.length > 0 && (
+          {cartItems.length > 0 && (
             <div className="bg-stone-800/60 border border-amber-500/30 rounded-lg p-3 mb-6 flex items-center justify-between">
               <div className="flex items-center gap-3">
                 <span className="text-2xl">🛒</span>
                 <div>
-                  <span className="text-amber-400 font-bold">{t.menu.cart}: {cart.reduce((s, i) => s + i.quantity, 0)} {t.menu.items}</span>
+                  <span className="text-amber-400 font-bold">{t.menu.cart}: {cartItemCount} {t.menu.items}</span>
                   <span className="text-white font-bold ml-3">{cartTotal.toLocaleString()} XAF</span>
                 </div>
               </div>
@@ -779,7 +645,7 @@ export default function Home() {
       <CheckoutModal
         open={checkoutModalOpen}
         onOpenChange={setCheckoutModalOpen}
-        cart={cart}
+        cart={cartItems}
         cartTotal={cartTotal}
         user={user}
         userData={userData}
