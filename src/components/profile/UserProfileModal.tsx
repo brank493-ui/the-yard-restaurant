@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { useCart } from '@/hooks/useCart';
 import { useRealtimeUser } from '@/hooks/useRealtimeUser';
@@ -29,14 +29,11 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
-import { db } from '@/lib/firebase';
-import { doc, onSnapshot, Unsubscribe } from 'firebase/firestore';
 import { 
   FileText, Download, CreditCard, Clock, CheckCircle, XCircle, Calendar, 
   Package, Users, Loader2, ShoppingCart, Trash2, Plus, Minus, 
   Wallet, RefreshCw, Zap
 } from 'lucide-react';
-import { subscribeToSyncEvent, SYNC_EVENTS } from '@/utils/syncEvents';
 
 interface UserProfileModalProps {
   open: boolean;
