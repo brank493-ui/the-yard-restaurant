@@ -63,6 +63,20 @@ interface NewsItem {
   active: boolean;
 }
 
+interface User {
+  id: string;
+  uid: string;
+  email: string;
+  displayName: string;
+  name: string;
+  phone: string;
+  role: string;
+  photoURL?: string | null;
+  createdAt?: string;
+  lastSignInTime?: string;
+  emailVerified?: boolean;
+}
+
 interface AdminDashboardProps {
   open?: boolean;
   onOpenChange?: (open: boolean) => void;
@@ -113,13 +127,15 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(false);
   const [stats, setStats] = useState({ 
     totalOrders: 0, 
     totalRevenue: 0, 
     pendingOrders: 0, 
     totalReservations: 0,
-    pendingPayments: 0
+    pendingPayments: 0,
+    totalUsers: 0
   });
 
   // Menu editing state
@@ -180,6 +196,14 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
         const newsData = await newsRes.json();
         setNewsItems(newsData);
       }
+
+      // Fetch users
+      const usersRes = await fetch('/api/users', { headers });
+      if (usersRes.ok) {
+        const usersData = await usersRes.json();
+        setUsers(usersData);
+        setStats(prev => ({ ...prev, totalUsers: usersData.length }));
+      }
     } catch (error) {
       console.error('Error fetching admin data:', error);
     } finally {
@@ -238,6 +262,23 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
       }
     } catch {
       toast.error('Failed to update reservation status');
+    }
+  };
+
+  // Update user role
+  const updateUserRole = async (userId: string, newRole: string) => {
+    try {
+      const res = await fetch('/api/users', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId, role: newRole }),
+      });
+      if (res.ok) {
+        toast.success('User role updated');
+        fetchAdminData();
+      }
+    } catch {
+      toast.error('Failed to update user role');
     }
   };
 
@@ -568,6 +609,13 @@ The Yard Restaurant
                   <p className="text-stone-400 text-xs">Reservations</p>
                 </CardContent>
               </Card>
+              <Card className="bg-stone-800 border-stone-700">
+                <CardContent className="p-4 text-center">
+                  <Users className="h-6 w-6 mx-auto text-purple-400 mb-1" />
+                  <p className="text-2xl font-bold text-white">{stats.totalUsers}</p>
+                  <p className="text-stone-400 text-xs">Users</p>
+                </CardContent>
+              </Card>
             </div>
 
             {/* Main Tabs */}
@@ -587,6 +635,9 @@ The Yard Restaurant
                 </TabsTrigger>
                 <TabsTrigger value="news" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
                   📰 News ({newsItems.length})
+                </TabsTrigger>
+                <TabsTrigger value="users" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                  👥 Users ({users.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -1064,6 +1115,66 @@ The Yard Restaurant
                         </Card>
                       ))}
                     </div>
+                  </div>
+                </TabsContent>
+
+                {/* Users Tab */}
+                <TabsContent value="users" className="mt-0">
+                  <div className="pr-4">
+                    <div className="flex justify-between items-center mb-4">
+                      <h3 className="text-lg font-bold text-amber-400">Registered Users</h3>
+                    </div>
+
+                    {users.length === 0 ? (
+                      <p className="text-center text-stone-400 py-12">No registered users yet</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {users.map((user) => (
+                          <Card key={user.id} className="bg-stone-800 border-stone-700">
+                            <CardContent className="p-4">
+                              <div className="flex justify-between items-center">
+                                <div className="flex items-center gap-3">
+                                  <div className="h-10 w-10 rounded-full bg-amber-600 flex items-center justify-center text-white font-bold">
+                                    {user.displayName?.[0]?.toUpperCase() || user.email?.[0]?.toUpperCase() || 'U'}
+                                  </div>
+                                  <div>
+                                    <p className="text-white font-medium">{user.displayName || user.name || 'Unknown'}</p>
+                                    <p className="text-stone-400 text-sm">{user.email}</p>
+                                    {user.phone && <p className="text-stone-500 text-xs">{user.phone}</p>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-3">
+                                  <div className="text-right">
+                                    <Badge className={`${
+                                      user.role === 'ADMIN' ? 'bg-red-500' :
+                                      user.role === 'STAFF' ? 'bg-blue-500' :
+                                      'bg-green-500'
+                                    } text-white`}>
+                                      {user.role || 'CUSTOMER'}
+                                    </Badge>
+                                    {user.createdAt && (
+                                      <p className="text-stone-500 text-xs mt-1">
+                                        Joined {new Date(user.createdAt).toLocaleDateString()}
+                                      </p>
+                                    )}
+                                  </div>
+                                  <Select onValueChange={(value) => updateUserRole(user.uid, value)}>
+                                    <SelectTrigger className="w-32 bg-stone-700 border-stone-600 text-white text-xs h-8">
+                                      <SelectValue placeholder="Change Role" />
+                                    </SelectTrigger>
+                                    <SelectContent className="bg-stone-700">
+                                      <SelectItem value="CUSTOMER">Customer</SelectItem>
+                                      <SelectItem value="STAFF">Staff</SelectItem>
+                                      <SelectItem value="ADMIN">Admin</SelectItem>
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 </TabsContent>
               </ScrollArea>
