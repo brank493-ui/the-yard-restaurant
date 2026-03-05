@@ -11,6 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { CreditCard, Loader2, CheckCircle, Smartphone, Building, Wallet } from 'lucide-react';
 import { toast } from 'sonner';
 import { paymentMethodConfig } from '@/components/ui/payment-logos';
+import { notifyOrderCreated, notifyCartUpdate } from '@/utils/syncEvents';
 
 interface CartItem {
   id: string;
@@ -128,6 +129,10 @@ export function CheckoutModal({ open, onOpenChange, cart, cartTotal, user, userD
             }),
           });
         }
+
+        // Notify other components about the new order and cart clear
+        notifyOrderCreated(data.order.id, user?.uid);
+        notifyCartUpdate(user?.uid || 'guest');
 
         setTimeout(() => {
           setSuccess(false);

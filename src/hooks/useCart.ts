@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
 import { toast } from 'sonner';
+import { notifyCartUpdate, subscribeToSyncEvent, SYNC_EVENTS } from '@/utils/syncEvents';
 
 export interface CartItem {
   id: string;
@@ -52,6 +53,18 @@ export function useCart() {
   useEffect(() => {
     fetchCart();
   }, [fetchCart]);
+
+  // Subscribe to cart sync events from other components
+  useEffect(() => {
+    const unsub = subscribeToSyncEvent(SYNC_EVENTS.CART_UPDATED, (data) => {
+      // Only refresh if this event is for this user or guest
+      const currentUserId = user?.uid || 'guest';
+      if (!data?.userId || data.userId === currentUserId) {
+        fetchCart();
+      }
+    });
+    return unsub;
+  }, [user?.uid, fetchCart]);
 
   // Add item to cart
   const addToCart = async (item: { 
@@ -140,6 +153,8 @@ export function useCart() {
       if (res.ok) {
         const data = await res.json();
         setCart(data.cart);
+        // Notify other components about cart update
+        notifyCartUpdate(userId);
       }
     } catch (error) {
       console.error('Error adding to cart:', error);
@@ -191,6 +206,8 @@ export function useCart() {
           quantity,
         }),
       });
+      // Notify other components about cart update
+      notifyCartUpdate(userId);
     } catch (error) {
       console.error('Error updating cart:', error);
     }
@@ -232,6 +249,8 @@ export function useCart() {
         }),
       });
       toast.success('Item removed from cart');
+      // Notify other components about cart update
+      notifyCartUpdate(userId);
     } catch (error) {
       console.error('Error removing from cart:', error);
     }
@@ -256,6 +275,8 @@ export function useCart() {
 
     try {
       await fetch(`/api/cart?userId=${userId}`, { method: 'DELETE' });
+      // Notify other components about cart update
+      notifyCartUpdate(userId);
     } catch (error) {
       console.error('Error clearing cart:', error);
     }

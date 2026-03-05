@@ -1,18 +1,63 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAdminAuth, getAdminDb } from '@/lib/firebase-admin';
 
-// Demo users for when Firebase isn't configured
+// Demo users for when Firebase isn't configured - includes multiple users for testing
 const demoUsers = [
   {
-    id: 'demo-1',
-    uid: 'demo-1',
+    id: 'demo-admin-1',
+    uid: 'demo-admin-1',
     email: 'admin@theyard.com',
     displayName: 'Admin User',
     name: 'Admin User',
     phone: '+237 671 490 733',
     role: 'ADMIN',
     createdAt: new Date().toISOString(),
-  }
+    emailVerified: true,
+  },
+  {
+    id: 'demo-manager-1',
+    uid: 'demo-manager-1',
+    email: 'manager@theyard.com',
+    displayName: 'Restaurant Manager',
+    name: 'Restaurant Manager',
+    phone: '+237 699 123 456',
+    role: 'MANAGER',
+    createdAt: new Date(Date.now() - 86400000).toISOString(),
+    emailVerified: true,
+  },
+  {
+    id: 'demo-customer-1',
+    uid: 'demo-customer-1',
+    email: 'jean.dupont@email.com',
+    displayName: 'Jean Dupont',
+    name: 'Jean Dupont',
+    phone: '+237 677 987 654',
+    role: 'CUSTOMER',
+    createdAt: new Date(Date.now() - 172800000).toISOString(),
+    emailVerified: true,
+  },
+  {
+    id: 'demo-customer-2',
+    uid: 'demo-customer-2',
+    email: 'marie.ntongo@email.com',
+    displayName: 'Marie Ntongo',
+    name: 'Marie Ntongo',
+    phone: '+237 655 444 333',
+    role: 'CUSTOMER',
+    createdAt: new Date(Date.now() - 259200000).toISOString(),
+    emailVerified: false,
+  },
+  {
+    id: 'demo-customer-3',
+    uid: 'demo-customer-3',
+    email: 'pierre.kamga@email.com',
+    displayName: 'Pierre Kamga',
+    name: 'Pierre Kamga',
+    phone: '+237 666 777 888',
+    role: 'CUSTOMER',
+    createdAt: new Date(Date.now() - 345600000).toISOString(),
+    emailVerified: true,
+  },
 ];
 
 // GET /api/users - Fetch all registered users
@@ -52,6 +97,12 @@ export async function GET(request: NextRequest) {
           pageToken = listUsersResult.pageToken;
         } while (pageToken);
 
+        // If no users found in Auth, return demo users
+        if (allUsers.length === 0) {
+          console.log('No users found in Firebase Auth, returning demo users');
+          return NextResponse.json(demoUsers);
+        }
+
         // Get Firestore user data for each auth user
         const firestoreData = new Map<string, any>();
         
@@ -84,16 +135,26 @@ export async function GET(request: NextRequest) {
         });
 
         console.log(`Fetched ${users.length} users from Firebase Auth`);
-        return NextResponse.json(users);
+        
+        // If users found, return them
+        if (users.length > 0) {
+          return NextResponse.json(users);
+        }
 
       } catch (authError) {
         console.error('Error fetching auth users:', authError);
+        // Continue to fallback
       }
     }
 
     // Fallback: try Firestore only
     try {
-      const usersSnapshot = await adminDb.collection('users').orderBy('createdAt', 'desc').get();
+      const usersSnapshot = await adminDb.collection('users').get();
+      
+      if (usersSnapshot.empty) {
+        console.log('No users found in Firestore, returning demo users');
+        return NextResponse.json(demoUsers);
+      }
       
       users = usersSnapshot.docs.map(doc => {
         const data = doc.data();
