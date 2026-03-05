@@ -1,0 +1,566 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ==================== User Models ====================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String?
+  phone         String?
+  avatar        String?
+  role          UserRole  @default(CUSTOMER)
+  isActive      Boolean   @default(true)
+  lastLoginAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  
+  // Relations
+  orders        Order[]
+  reservations  Reservation[]
+  events        Event[]
+  reviews       Review[]
+  payments      Payment[]
+  invoices      Invoice[]
+  notifications Notification[]
+  adminLogs     AdminLog[]
+  
+  @@index([email])
+  @@index([role])
+  @@index([createdAt])
+}
+
+enum UserRole {
+  CUSTOMER
+  STAFF
+  MANAGER
+  ADMIN
+}
+
+// ==================== Menu Models ====================
+
+model MenuItem {
+  id          String       @id @default(cuid())
+  name        String
+  description String
+  price       Int          // Price in XAF
+  category    MenuCategory
+  image       String?
+  available   Boolean      @default(true)
+  featured    Boolean      @default(false)
+  preparationTime Int?     // in minutes
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  
+  // Relations
+  orderItems  OrderItem[]
+  
+  @@index([category])
+  @@index([available])
+  @@index([featured])
+}
+
+enum MenuCategory {
+  appetizer
+  main
+  grilled
+  seafood
+  vegetarian
+  dessert
+  beverage
+  cocktail
+}
+
+// ==================== Order Models ====================
+
+model Order {
+  id              String        @id @default(cuid())
+  userId          String?
+  customerName    String
+  phone           String
+  email           String?
+  type            OrderType     @default(pickup)
+  address         String?
+  
+  // Pricing
+  subtotal        Int           @default(0)
+  serviceCharge   Int           @default(0)  // 5%
+  tax             Int           @default(0)  // 19.25% VAT
+  deliveryFee     Int           @default(0)
+  discount        Int           @default(0)
+  totalAmount     Int           @default(0)
+  
+  // Status
+  status          OrderStatus   @default(PENDING)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
+  transactionReference String?
+  
+  // Metadata
+  notes           String?
+  estimatedReadyAt DateTime?
+  paidAt          DateTime?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  user            User?         @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  payment         Payment?
+  invoice         Invoice?
+  
+  @@index([userId])
+  @@index([status])
+  @@index([paymentStatus])
+  @@index([createdAt])
+  @@index([paidAt])
+}
+
+enum OrderType {
+  pickup
+  delivery
+  dine_in
+}
+
+enum OrderStatus {
+  PENDING
+  DRAFT
+  CONFIRMED
+  PREPARING
+  READY
+  COMPLETED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  REFUNDED
+  PARTIAL
+}
+
+enum PaymentMethod {
+  CASH
+  ORANGE_MONEY
+  MTN_MONEY
+  VISA
+  MASTERCARD
+  STRIPE
+}
+
+model OrderItem {
+  id          String   @id @default(cuid())
+  orderId     String
+  menuItemId  String?
+  name        String
+  quantity    Int
+  price       Int
+  subtotal    Int
+  notes       String?
+  
+  // Relations
+  order       Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  menuItem    MenuItem? @relation(fields: [menuItemId], references: [id])
+  
+  @@index([orderId])
+  @@index([menuItemId])
+}
+
+// ==================== Reservation Models ====================
+
+model Reservation {
+  id              String              @id @default(cuid())
+  userId          String?
+  name            String
+  email           String
+  phone           String
+  date            String              // YYYY-MM-DD format
+  time            String
+  partySize       Int
+  status          ReservationStatus   @default(PENDING)
+  occasion        String?
+  specialRequests String?
+  tableNumber     String?
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  
+  // Relations
+  user            User?               @relation(fields: [userId], references: [id])
+  invoice         Invoice?
+  
+  @@index([userId])
+  @@index([date])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum ReservationStatus {
+  PENDING
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+  NO_SHOW
+}
+
+// ==================== Event Models ====================
+
+model Event {
+  id              String        @id @default(cuid())
+  userId          String?
+  name            String
+  email           String
+  phone           String?
+  eventType       String
+  eventDate       String?
+  preferredDate   String?
+  guestCount      Int           @default(0)
+  totalAmount     Int           @default(0)
+  status          EventStatus   @default(INQUIRY)
+  paymentStatus   PaymentStatus @default(PENDING)
+  paymentMethod   PaymentMethod?
+  budget          String?
+  details         String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  
+  // Relations
+  user            User?         @relation(fields: [userId], references: [id])
+  services        EventService[]
+  invoice         Invoice?
+  
+  @@index([userId])
+  @@index([eventDate])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum EventStatus {
+  INQUIRY
+  QUOTED
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+model EventService {
+  id          String   @id @default(cuid())
+  eventId     String
+  serviceName String
+  description String?
+  price       Int
+  quantity    Int      @default(1)
+  subtotal    Int
+  
+  // Relations
+  event       Event    @relation(fields: [eventId], references: [id], onDelete: Cascade)
+  
+  @@index([eventId])
+}
+
+// ==================== Review Models ====================
+
+model Review {
+  id          String   @id @default(cuid())
+  userId      String?
+  name        String
+  email       String?
+  rating      Int      // 1-5
+  text        String
+  avatar      String?
+  approved    Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  // Relations
+  user        User?    @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([approved])
+  @@index([createdAt])
+}
+
+// ==================== Payment Models ====================
+
+model Payment {
+  id                  String        @id @default(cuid())
+  orderId             String?       @unique
+  userId              String?
+  amount              Int
+  currency            String        @default("XAF")
+  paymentMethod       PaymentMethod
+  paymentStatus       PaymentStatus @default(PENDING)
+  transactionReference String?      @unique
+  paymentProvider     String?       // e.g., "orange_money", "mtn_money", "stripe"
+  providerResponse    String?       // JSON string of provider response
+  paidAt              DateTime?
+  failedAt            DateTime?
+  refundedAt          DateTime?
+  refundAmount        Int?
+  refundReason        String?
+  createdAt           DateTime      @default(now())
+  updatedAt           DateTime      @updatedAt
+  
+  // Relations
+  user                User?         @relation(fields: [userId], references: [id])
+  order               Order?        @relation(fields: [orderId], references: [id])
+  
+  @@index([userId])
+  @@index([paymentStatus])
+  @@index([transactionReference])
+  @@index([createdAt])
+}
+
+// ==================== Invoice Models ====================
+
+model Invoice {
+  id                String        @id @default(cuid())
+  invoiceNumber     String        @unique
+  orderId           String?       @unique
+  reservationId     String?       @unique
+  eventId           String?       @unique
+  userId            String?
+  
+  // Customer details
+  customerName      String
+  customerEmail     String?
+  customerPhone     String?
+  customerAddress   String?
+  
+  // Business details (The Yard Restaurant)
+  businessName      String        @default("THE YARD RESTAURANT")
+  businessAddress   String        @default("737 Rue Batibois, Douala, Cameroon")
+  businessPhone     String        @default("+237 671 490 733")
+  businessEmail     String        @default("info@theyardrestaurant.com")
+  
+  // Pricing
+  subtotal          Int           @default(0)
+  serviceCharge     Int           @default(0)  // 5%
+  vat               Int           @default(0)  // 19.25%
+  deliveryFee       Int           @default(0)
+  discount          Int           @default(0)
+  total             Int           @default(0)
+  
+  // Payment
+  paymentMethod     PaymentMethod?
+  paymentStatus     PaymentStatus @default(PENDING)
+  paymentReference  String?
+  paidAt            DateTime?
+  
+  // Status
+  status            InvoiceStatus @default(DRAFT)
+  
+  // Dates
+  dueDate           DateTime
+  createdAt         DateTime      @default(now())
+  updatedAt         DateTime      @updatedAt
+  
+  // PDF storage
+  pdfUrl            String?
+  pdfGeneratedAt    DateTime?
+  
+  // Relations
+  user              User?           @relation(fields: [userId], references: [id])
+  order             Order?          @relation(fields: [orderId], references: [id])
+  reservation       Reservation?    @relation(fields: [reservationId], references: [id])
+  event             Event?          @relation(fields: [eventId], references: [id])
+  items             InvoiceItem[]
+  
+  @@index([userId])
+  @@index([invoiceNumber])
+  @@index([paymentStatus])
+  @@index([status])
+  @@index([createdAt])
+}
+
+enum InvoiceStatus {
+  DRAFT
+  SENT
+  PAID
+  CANCELLED
+  OVERDUE
+}
+
+model InvoiceItem {
+  id          String   @id @default(cuid())
+  invoiceId   String
+  description String
+  quantity    Int
+  unitPrice   Int
+  subtotal    Int
+  
+  // Relations
+  invoice     Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  
+  @@index([invoiceId])
+}
+
+// ==================== Daily Report Models ====================
+
+model DailyReport {
+  id                String   @id @default(cuid())
+  date              String   @unique  // YYYY-MM-DD
+  
+  // Counts
+  totalOrders       Int      @default(0)
+  totalReservations Int      @default(0)
+  totalEvents       Int      @default(0)
+  
+  // Revenue
+  totalRevenue      Int      @default(0)
+  cashRevenue       Int      @default(0)
+  mobileMoneyRevenue Int    @default(0)
+  cardRevenue       Int      @default(0)
+  
+  // Payment stats
+  paymentsConfirmed Int      @default(0)
+  paymentsPending   Int      @default(0)
+  paymentsFailed    Int      @default(0)
+  
+  // Analytics (stored as JSON strings)
+  topItems          String?  // JSON: Array<{ name: string; count: number; revenue: number }>
+  paymentMethods    String?  // JSON: Record<string, number>
+  peakHours         String?  // JSON: Array<{ hour: number; orders: number; revenue: number }>
+  
+  // Metadata
+  reportGeneratedAt DateTime?
+  archivedAt        DateTime?
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  
+  @@index([date])
+  @@index([createdAt])
+}
+
+// ==================== Notification Models ====================
+
+model Notification {
+  id                  String            @id @default(cuid())
+  type                NotificationType
+  title               String
+  message             String
+  userId              String?
+  read                Boolean           @default(false)
+  
+  // Related entities
+  orderId             String?
+  reservationId       String?
+  eventId             String?
+  paymentId           String?
+  
+  // Payment details
+  paymentMethod       PaymentMethod?
+  transactionReference String?
+  amount              Int?
+  
+  // Metadata
+  priority            NotificationPriority @default(NORMAL)
+  sentAt              DateTime?
+  readAt              DateTime?
+  createdAt           DateTime          @default(now())
+  
+  // Relations
+  user                User?             @relation(fields: [userId], references: [id])
+  
+  @@index([userId])
+  @@index([type])
+  @@index([read])
+  @@index([createdAt])
+}
+
+enum NotificationType {
+  ORDER
+  PAYMENT
+  RESERVATION
+  EVENT
+  SYSTEM
+  PROMO
+  REVIEW
+}
+
+enum NotificationPriority {
+  LOW
+  NORMAL
+  HIGH
+  URGENT
+}
+
+// ==================== Admin Log Models ====================
+
+model AdminLog {
+  id          String          @id @default(cuid())
+  adminId     String
+  adminEmail  String?
+  action      String
+  targetId    String
+  targetType  AdminTargetType
+  details     String
+  metadata    String?         // JSON string for additional data
+  ipAddress   String?
+  userAgent   String?
+  createdAt   DateTime        @default(now())
+  
+  // Relations
+  admin       User?           @relation(fields: [adminId], references: [id])
+  
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType])
+  @@index([targetId])
+  @@index([createdAt])
+}
+
+enum AdminTargetType {
+  order
+  reservation
+  event
+  payment
+  user
+  invoice
+  report
+  system
+}
+
+// ==================== Contact Message Model ====================
+
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  subject   String?
+  message   String
+  read      Boolean  @default(false)
+  repliedAt DateTime?
+  createdAt DateTime @default(now())
+  
+  @@index([email])
+  @@index([read])
+  @@index([createdAt])
+}
+
+// ==================== News/Announcement Model ====================
+
+model NewsItem {
+  id          String   @id @default(cuid())
+  title       String
+  description String
+  image       String?
+  active      Boolean  @default(true)
+  startDate   String?
+  endDate     String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  
+  @@index([active])
+  @@index([startDate])
+}
