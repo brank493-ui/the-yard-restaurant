@@ -2,13 +2,10 @@
 
 import { useState, useEffect } from 'react';
 import { useAuth } from '@/contexts/AuthContext';
-import { useRealtimeData } from '@/hooks/useRealtimeData';
-import { useCart } from '@/hooks/useCart';
 import { PaymentMethodCard, paymentMethodConfig } from '@/components/ui/payment-logos';
 import {
   Dialog,
   DialogContent,
-  DialogDescription,
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
@@ -23,7 +20,7 @@ import {
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
@@ -32,8 +29,8 @@ import { Label } from '@/components/ui/label';
 import { toast } from 'sonner';
 import { 
   FileText, Download, CreditCard, Clock, CheckCircle, XCircle, Calendar, 
-  Package, Users, AlertCircle, Loader2, ShoppingCart, Trash2, Plus, Minus, 
-  Wallet, ArrowRight, RefreshCw, ExternalLink
+  Package, Users, Loader2, ShoppingCart, Trash2, Plus, Minus, 
+  Wallet, RefreshCw
 } from 'lucide-react';
 
 interface Order {
@@ -129,27 +126,94 @@ const paymentMethods = Object.entries(paymentMethodConfig).map(([key, config]) =
 export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) {
   const { user, userData } = useAuth();
   
-  // Use cart hook for real-time cart sync with main page
-  const { 
-    cart, 
-    updateQuantity: updateCartItem, 
-    removeItem: removeCartItem, 
-    clearCart,
-    itemCount: cartItemCount 
-  } = useCart();
-  
-  // Use realtime data for orders, reservations, events, invoices
-  const realtimeData = useRealtimeData({
-    userId: user?.uid,
-    isAdmin: false,
-    enabled: open && !!user,
-  });
-  
-  const orders = (realtimeData.orders || []) as Order[];
-  const reservations = (realtimeData.reservations || []) as Reservation[];
-  const events = (realtimeData.events || []) as Event[];
-  const invoices = (realtimeData.invoices || []) as Invoice[];
-  const loading = realtimeData.loading;
+  // State for all data
+  const [cart, setCart] = useState<Cart | null>(null);
+  const [orders, setOrders] = useState<Order[]>([]);
+  const [reservations, setReservations] = useState<Reservation[]>([]);
+  const [events, setEvents] = useState<Event[]>([]);
+  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Fetch all user data
+  const fetchAllData = async (showRefreshing = false) => {
+    if (showRefreshing) setRefreshing(true);
+    
+    try {
+      const userId = user?.uid || 'guest';
+      
+      // Fetch cart
+      const cartRes = await fetch(`/api/cart?userId=${userId}`);
+      if (cartRes.ok) {
+        const cartData = await cartRes.json();
+        setCart(cartData.cart);
+      }
+
+      // Fetch orders
+      const ordersRes = await fetch('/api/orders');
+      if (ordersRes.ok) {
+        const ordersData = await ordersRes.json();
+        // Filter orders by user if logged in
+        const userOrders = user?.uid 
+          ? ordersData.filter((o: Order) => o.userId === user.uid || o.email === user.email)
+          : ordersData;
+        setOrders(userOrders);
+      }
+
+      // Fetch reservations
+      const resRes = await fetch('/api/reservations');
+      if (resRes.ok) {
+        const resData = await resRes.json();
+        const userRes = user?.uid
+          ? resData.filter((r: Reservation) => r.email === user?.email)
+          : resData;
+        setReservations(userRes);
+      }
+
+      // Fetch events
+      const eventsRes = await fetch('/api/events');
+      if (eventsRes.ok) {
+        const eventsData = await eventsRes.json();
+        const userEvents = user?.uid
+          ? eventsData.filter((e: Event) => e.email === user?.email)
+          : eventsData;
+        setEvents(userEvents);
+      }
+
+      // Fetch invoices
+      const invoicesRes = await fetch(`/api/invoices?userId=${user?.uid || 'guest'}`);
+      if (invoicesRes.ok) {
+        const invoicesData = await invoicesRes.json();
+        setInvoices(invoicesData);
+      }
+    } catch (error) {
+      console.error('Error fetching user data:', error);
+    } finally {
+      setLoading(false);
+      setRefreshing(false);
+    }
+  };
+
+  // Load data when modal opens
+  useEffect(() => {
+    if (open && user) {
+      setLoading(true);
+      fetchAllData();
+    }
+  }, [open, user?.uid]);
+
+  // Auto-refresh every 10 seconds when open
+  useEffect(() => {
+    if (!open) return;
+    
+    const interval = setInterval(() => {
+      fetchAllData();
+    }, 10000);
+    
+    return () => clearInterval(interval);
+  }, [open, user?.uid]);
+
+  const cartItemCount = cart?.items?.reduce((sum, item) => sum + item.quantity, 0) || 0;
   
   // Calculate unpaid amounts
   const unpaidOrders = orders.filter((o) => 
@@ -171,6 +235,42 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<string>('');
   const [transactionReference, setTransactionReference] = useState('');
   const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Cart operations
+  const updateCartItem = async (menuItemId: string, quantity: number) => {
+    try {
+      await fetch('/api/cart', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.uid,
+          menuItemId,
+          quantity,
+        }),
+      });
+      fetchAllData();
+    } catch (error) {
+      toast.error('Failed to update cart');
+    }
+  };
+
+  const removeCartItem = async (menuItemId: string) => {
+    try {
+      await fetch('/api/cart', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          userId: user?.uid,
+          menuItemId,
+          action: 'remove',
+        }),
+      });
+      toast.success('Item removed from cart');
+      fetchAllData();
+    } catch (error) {
+      toast.error('Failed to remove item');
+    }
+  };
 
   const getStatusColor = (status: string) => {
     switch (status?.toUpperCase()) {
@@ -220,7 +320,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
     }
 
     if ((selectedPaymentMethod === 'ORANGE_MONEY' || selectedPaymentMethod === 'MTN_MONEY') && !transactionReference.trim()) {
-      toast.error('Please enter the transaction reference from your mobile money payment');
+      toast.error('Please enter the transaction reference');
       return;
     }
 
@@ -241,39 +341,19 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
 
       await Promise.all(updatePromises);
 
-      const invoiceRes = await fetch('/api/invoices', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          orderId: 'BULK-' + Date.now(),
-          orderData: {
-            customerName: userData?.name || user?.email || 'Customer',
-            email: user?.email,
-            phone: userData?.phone || '',
-            items: unpaidOrders.flatMap(o => o.items),
-            totalAmount: totalDue,
-            paymentMethod: selectedPaymentMethod,
-            paymentStatus: selectedPaymentMethod === 'CASH' ? 'PENDING' : 'PROCESSING',
-            transactionReference: transactionReference.trim() || undefined,
-            userId: user?.uid,
-            isBulkPayment: true,
-            orderIds: unpaidOrders.map(o => o.id),
-          },
-        }),
-      });
-
       const methodLabel = selectedPaymentMethod === 'ORANGE_MONEY' ? 'Orange Money' : 
                          selectedPaymentMethod === 'MTN_MONEY' ? 'MTN Money' : 'Cash';
       
       if (selectedPaymentMethod === 'CASH') {
-        toast.success(`Payment method set to Cash for ${unpaidOrders.length} orders. Total: ${totalDue.toLocaleString()} XAF`);
+        toast.success(`Payment set to Cash for ${unpaidOrders.length} orders`);
       } else {
-        toast.success(`Payment of ${totalDue.toLocaleString()} XAF submitted via ${methodLabel}! Processing...`);
+        toast.success(`Payment of ${totalDue.toLocaleString()} XAF submitted via ${methodLabel}!`);
       }
       
       setPayAllDialogOpen(false);
       setTransactionReference('');
       setSelectedPaymentMethod('');
+      fetchAllData();
       
     } catch (error) {
       toast.error('Failed to process payment');
@@ -289,7 +369,7 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
     }
 
     if ((selectedPaymentMethod === 'ORANGE_MONEY' || selectedPaymentMethod === 'MTN_MONEY') && !transactionReference.trim()) {
-      toast.error('Please enter the transaction reference from your mobile money payment');
+      toast.error('Please enter the transaction reference');
       return;
     }
 
@@ -303,38 +383,16 @@ export function UserProfileModal({ open, onOpenChange }: UserProfileModalProps) 
           paymentMethod: selectedPaymentMethod, 
           paymentStatus: selectedPaymentMethod === 'CASH' ? 'PENDING' : 'PROCESSING',
           transactionReference: transactionReference.trim() || undefined,
-          customerName: selectedOrder.customerName,
-          totalAmount: selectedOrder.totalAmount
         }),
       });
 
       if (res.ok) {
-        const invoiceRes = await fetch('/api/invoices', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            orderId: selectedOrder.id,
-            orderData: {
-              ...selectedOrder,
-              paymentMethod: selectedPaymentMethod,
-              paymentStatus: selectedPaymentMethod === 'CASH' ? 'PENDING' : 'PROCESSING',
-              transactionReference: transactionReference.trim() || undefined,
-              email: user?.email || selectedOrder.customerName + '@guest.com',
-              userId: user?.uid,
-            },
-          }),
-        });
-
         const methodLabel = selectedPaymentMethod === 'ORANGE_MONEY' ? 'Orange Money' : 
                            selectedPaymentMethod === 'MTN_MONEY' ? 'MTN Money' : 'Cash';
         
-        if (selectedPaymentMethod === 'CASH') {
-          toast.success(`Payment method set to Cash.`);
-        } else {
-          toast.success(`Payment submitted via ${methodLabel}! Processing...`);
-        }
-        
+        toast.success(`Payment submitted via ${methodLabel}!`);
         setPaymentDialogOpen(false);
+        fetchAllData();
       } else {
         toast.error('Failed to submit payment');
       }
@@ -398,15 +456,6 @@ The Yard Restaurant
     }
   };
 
-  const formatTime = (date: string | Date | undefined) => {
-    if (!date) return '';
-    try {
-      return new Date(date).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-    } catch {
-      return '';
-    }
-  };
-
   return (
     <>
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -424,14 +473,26 @@ The Yard Restaurant
                   <p className="text-stone-400 text-sm">{user?.email}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
-                <RefreshCw className="h-3 w-3" />
-                <span>Live</span>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchAllData(true)}
+                  disabled={refreshing}
+                  className="border-stone-600 text-stone-300"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${refreshing ? 'animate-spin' : ''}`} />
+                  Refresh
+                </Button>
+                <div className="flex items-center gap-2 text-xs text-green-400 bg-green-500/10 px-2 py-1 rounded-full">
+                  <span className="text-green-400">●</span>
+                  <span>Live</span>
+                </div>
               </div>
             </div>
           </DialogHeader>
 
-          {/* Summary Stats Row - Fixed */}
+          {/* Summary Stats Row */}
           <div className="grid grid-cols-6 gap-2 p-3 bg-stone-800/50 flex-shrink-0">
             <div className="bg-stone-800 rounded-lg p-2 text-center border border-stone-700">
               <ShoppingCart className="h-4 w-4 mx-auto text-amber-400 mb-1" />
@@ -465,7 +526,7 @@ The Yard Restaurant
             </div>
           </div>
 
-          {/* Total Due Banner - Fixed */}
+          {/* Total Due Banner */}
           {totalDue > 0 && (
             <div className="mx-3 mt-2 bg-gradient-to-r from-red-900/40 to-orange-900/30 rounded-lg p-3 border border-red-500/30 flex-shrink-0">
               <div className="flex items-center justify-between">
@@ -493,7 +554,7 @@ The Yard Restaurant
             </div>
           )}
 
-          {/* Tabs - Scrollable Content Area */}
+          {/* Tabs */}
           <Tabs defaultValue="cart" className="flex-1 flex flex-col min-h-0 mt-2">
             <TabsList className="bg-stone-800 mx-3 rounded-lg p-1 flex-shrink-0">
               <TabsTrigger value="cart" className="flex-1 data-[state=active]:bg-amber-600 data-[state=active]:text-white text-stone-400 text-sm py-2">
@@ -637,7 +698,7 @@ The Yard Restaurant
                             </div>
                           </div>
                           <p className="text-stone-500 text-xs mt-1">
-                            {order.type === 'delivery' ? '🚗 Delivery' : '🏪 Pickup'} • {formatDate(order.createdAt)} {formatTime(order.createdAt)}
+                            {order.type === 'delivery' ? '🚗 Delivery' : '🏪 Pickup'} • {formatDate(order.createdAt)}
                           </p>
                           <p className="text-stone-400 text-xs mt-1">
                             {order.items?.slice(0, 2).map((item, i) => (
@@ -657,12 +718,6 @@ The Yard Restaurant
                               <CreditCard className="h-3 w-3 mr-1" />
                               Pay
                             </Button>
-                          )}
-                          {order.paymentStatus === 'PROCESSING' && (
-                            <Badge className="bg-blue-500 text-white text-xs mt-1 animate-pulse">
-                              <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                              Processing
-                            </Badge>
                           )}
                         </div>
                       </div>
@@ -764,7 +819,7 @@ The Yard Restaurant
                               {invoice.paymentStatus}
                             </Badge>
                           </div>
-                          <p className="text-stone-500 text-xs mt-1">{formatDate(invoice.createdAt)}</p>
+                          <p className="text-stone-500 text-xs">{formatDate(invoice.createdAt)}</p>
                         </div>
                         <div className="flex items-center gap-2">
                           <p className="text-white font-bold">{invoice.total?.toLocaleString()} XAF</p>
@@ -787,7 +842,7 @@ The Yard Restaurant
         </DialogContent>
       </Dialog>
 
-      {/* Single Order Payment Dialog */}
+      {/* Payment Dialog */}
       <AlertDialog open={paymentDialogOpen} onOpenChange={setPaymentDialogOpen}>
         <AlertDialogContent className="bg-stone-800 border-amber-500/30 text-white max-w-md">
           <AlertDialogHeader>
@@ -829,7 +884,7 @@ The Yard Restaurant
                   <Input
                     value={transactionReference}
                     onChange={(e) => setTransactionReference(e.target.value)}
-                    placeholder="Enter reference from your phone"
+                    placeholder="Enter reference"
                     className="bg-stone-700 border-stone-600 mt-1"
                   />
                 </div>
@@ -857,7 +912,7 @@ The Yard Restaurant
           <AlertDialogHeader>
             <AlertDialogTitle className="text-amber-400">Pay All Outstanding</AlertDialogTitle>
             <AlertDialogDescription className="text-stone-400">
-              Total to pay: <span className="text-white font-bold text-xl">{totalDue.toLocaleString()} XAF</span>
+              Total: <span className="text-white font-bold text-xl">{totalDue.toLocaleString()} XAF</span>
               <br />
               <span className="text-sm">{unpaidOrders.length} unpaid order(s)</span>
             </AlertDialogDescription>
@@ -888,14 +943,13 @@ The Yard Restaurant
                 <div className={`p-3 rounded-lg ${selectedMethodDetails.bgColor} ${selectedMethodDetails.textColor}`}>
                   <p className="text-sm font-medium">Send payment to:</p>
                   <p className="font-bold text-lg">{selectedMethodDetails.accountNumber}</p>
-                  <p className="text-xs opacity-75">{selectedMethodDetails.accountName}</p>
                 </div>
                 <div>
                   <Label className="text-stone-300">Transaction Reference *</Label>
                   <Input
                     value={transactionReference}
                     onChange={(e) => setTransactionReference(e.target.value)}
-                    placeholder="Enter reference from your phone"
+                    placeholder="Enter reference"
                     className="bg-stone-700 border-stone-600 mt-1"
                   />
                 </div>
