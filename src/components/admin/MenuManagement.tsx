@@ -1188,48 +1188,81 @@ The Yard Restaurant
                 {/* Chef's Picks Tab - Two Board Layout */}
                 <TabsContent value="chefs-picks" className="mt-0">
                   <div className="pr-4 space-y-6">
+                    {/* Header with real-time indicator */}
                     <div className="flex justify-between items-center">
                       <div>
                         <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
                           <ChefHat className="h-5 w-5" />
-                          Chef's Picks
+                          Chef's Picks Management
                         </h3>
-                        <p className="text-stone-400 text-sm">Featured items highlighted on the main page</p>
+                        <p className="text-stone-400 text-sm flex items-center gap-2">
+                          Manage featured items shown on the website
+                          <span className="flex items-center gap-1 text-green-400 text-xs">
+                            <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
+                            Live sync
+                          </span>
+                        </p>
                       </div>
-                      <Badge className="bg-amber-600 text-white">
+                      <Badge className="bg-amber-600 text-white px-3 py-1">
                         {featuredItems.length} Featured
                       </Badge>
                     </div>
 
-                    {/* Upper Board - Featured Items */}
-                    <Card className="bg-gradient-to-r from-amber-900/30 to-stone-800 border-amber-500/30">
+                    {/* Upper Board - Featured Items (Currently on Website) */}
+                    <Card className="bg-gradient-to-r from-amber-900/30 via-amber-800/20 to-stone-800 border-amber-500/50 shadow-lg shadow-amber-500/10">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-amber-400 text-sm flex items-center gap-2">
-                          <Star className="h-4 w-4 fill-amber-400" />
-                          Featured Items (Click to remove)
+                        <CardTitle className="text-amber-400 flex items-center gap-2">
+                          <Star className="h-5 w-5 fill-amber-400" />
+                          Currently on Website (Chef's Recommendations)
                         </CardTitle>
+                        <p className="text-stone-400 text-xs">These items are displayed in the Chef's Recommendations section on the main page</p>
                       </CardHeader>
                       <CardContent>
                         {featuredItems.length === 0 ? (
-                          <p className="text-center text-stone-400 py-8">No featured items. Click items below to add them.</p>
+                          <div className="text-center py-12 border-2 border-dashed border-stone-600 rounded-lg">
+                            <ChefHat className="h-12 w-12 text-stone-500 mx-auto mb-3" />
+                            <p className="text-stone-400">No featured items yet</p>
+                            <p className="text-stone-500 text-sm">Click "Add" on items below to feature them</p>
+                          </div>
                         ) : (
-                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                             {featuredItems.map((item) => (
                               <div
                                 key={item.id}
-                                onClick={() => removeFromFeatured(item)}
-                                className="bg-stone-800 border border-amber-500/50 rounded-lg p-3 cursor-pointer hover:bg-stone-700 transition-colors"
+                                className="bg-stone-800/80 border border-amber-500/50 rounded-lg overflow-hidden hover:border-amber-400 transition-all group"
                               >
-                                <div className="flex items-center gap-3">
-                                  <div className="text-2xl">{getCategoryIcon(item.category)}</div>
-                                  <div className="flex-1 min-w-0">
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-white font-medium truncate">{item.name}</span>
-                                      <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
-                                    </div>
-                                    <p className="text-amber-400 font-bold text-sm">{item.price?.toLocaleString()} XAF</p>
+                                {/* Item Image */}
+                                {item.image ? (
+                                  <div className="h-24 bg-stone-700 overflow-hidden">
+                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
                                   </div>
-                                  <ArrowDown className="h-4 w-4 text-red-400" title="Remove from featured" />
+                                ) : (
+                                  <div className="h-24 bg-gradient-to-br from-amber-900/50 to-stone-700 flex items-center justify-center">
+                                    <span className="text-4xl">{getCategoryIcon(item.category)}</span>
+                                  </div>
+                                )}
+                                {/* Item Info */}
+                                <div className="p-3">
+                                  <div className="flex items-start justify-between gap-2">
+                                    <div className="flex-1 min-w-0">
+                                      <div className="flex items-center gap-2">
+                                        <span className="text-white font-medium truncate">{item.name}</span>
+                                        <Star className="h-4 w-4 text-amber-400 fill-amber-400 shrink-0" />
+                                      </div>
+                                      <p className="text-amber-400 font-bold text-sm">{item.price?.toLocaleString()} XAF</p>
+                                      <p className="text-stone-500 text-xs truncate">{item.description || 'No description'}</p>
+                                    </div>
+                                  </div>
+                                  {/* Remove Button */}
+                                  <Button
+                                    size="sm"
+                                    variant="destructive"
+                                    onClick={() => removeFromFeatured(item)}
+                                    className="w-full mt-3 bg-red-600/80 hover:bg-red-500 text-white"
+                                  >
+                                    <Trash2 className="h-4 w-4 mr-2" />
+                                    Remove from Featured
+                                  </Button>
                                 </div>
                               </div>
                             ))}
@@ -1238,32 +1271,60 @@ The Yard Restaurant
                       </CardContent>
                     </Card>
 
-                    {/* Lower Board - All Available Items */}
-                    <Card className="bg-stone-800 border-stone-700">
+                    {/* Lower Board - Available Items to Add */}
+                    <Card className="bg-stone-800/50 border-stone-600">
                       <CardHeader className="pb-2">
-                        <CardTitle className="text-stone-300 text-sm flex items-center gap-2">
-                          🍽️ Available Items (Click to feature)
+                        <CardTitle className="text-stone-200 flex items-center gap-2">
+                          <Package className="h-5 w-5" />
+                          Available Menu Items
                         </CardTitle>
+                        <p className="text-stone-400 text-xs">Click "Add" to feature an item in Chef's Recommendations</p>
                       </CardHeader>
                       <CardContent>
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
-                          {regularItems.filter(item => item.isAvailable).map((item) => (
-                            <div
-                              key={item.id}
-                              onClick={() => addToFeatured(item)}
-                              className="bg-stone-700 border border-stone-600 rounded-lg p-3 cursor-pointer hover:bg-stone-600 hover:border-amber-500/50 transition-all"
-                            >
-                              <div className="flex items-center gap-2">
-                                <div className="text-xl">{getCategoryIcon(item.category)}</div>
-                                <div className="flex-1 min-w-0">
-                                  <span className="text-white font-medium text-sm truncate block">{item.name}</span>
-                                  <p className="text-amber-400 text-xs">{item.price?.toLocaleString()} XAF</p>
+                        {regularItems.filter(item => item.isAvailable).length === 0 ? (
+                          <div className="text-center py-8 text-stone-400">
+                            All available items are already featured
+                          </div>
+                        ) : (
+                          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-3">
+                            {regularItems.filter(item => item.isAvailable).map((item) => (
+                              <div
+                                key={item.id}
+                                className="bg-stone-700/50 border border-stone-600 rounded-lg overflow-hidden hover:border-amber-500/50 transition-all group"
+                              >
+                                {/* Item Image */}
+                                {item.image ? (
+                                  <div className="h-20 bg-stone-600 overflow-hidden">
+                                    <img src={item.image} alt={item.name} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+                                  </div>
+                                ) : (
+                                  <div className="h-20 bg-gradient-to-br from-stone-600 to-stone-700 flex items-center justify-center">
+                                    <span className="text-3xl">{getCategoryIcon(item.category)}</span>
+                                  </div>
+                                )}
+                                {/* Item Info */}
+                                <div className="p-3">
+                                  <div className="flex items-center gap-2 mb-2">
+                                    <span className="text-white font-medium text-sm truncate flex-1">{item.name}</span>
+                                    <Badge variant="outline" className="border-stone-500 text-stone-300 text-xs">
+                                      {getCategoryIcon(item.category)}
+                                    </Badge>
+                                  </div>
+                                  <p className="text-amber-400 font-bold text-sm mb-2">{item.price?.toLocaleString()} XAF</p>
+                                  {/* Add Button */}
+                                  <Button
+                                    size="sm"
+                                    onClick={() => addToFeatured(item)}
+                                    className="w-full bg-green-600 hover:bg-green-500 text-white"
+                                  >
+                                    <Plus className="h-4 w-4 mr-2" />
+                                    Add to Featured
+                                  </Button>
                                 </div>
-                                <ArrowUp className="h-4 w-4 text-green-400" title="Add to featured" />
                               </div>
-                            </div>
-                          ))}
-                        </div>
+                            ))}
+                          </div>
+                        )}
                       </CardContent>
                     </Card>
                   </div>
