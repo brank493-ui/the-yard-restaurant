@@ -758,10 +758,14 @@ The Yard Restaurant
   // Fetch gallery data
   const fetchGalleryData = useCallback(async () => {
     try {
+      console.log('Fetching gallery data...');
       const res = await fetch('/api/gallery');
       if (res.ok) {
         const data = await res.json();
+        console.log('Gallery data received:', data.length, 'images');
         setGalleryImages(data);
+      } else {
+        console.error('Failed to fetch gallery:', res.status, res.statusText);
       }
     } catch (error) {
       console.error('Error fetching gallery:', error);
@@ -795,12 +799,17 @@ The Yard Restaurant
     try {
       const url = isAddingGallery ? '/api/gallery' : `/api/gallery/${editingGallery?.id}`;
       const method = isAddingGallery ? 'POST' : 'PUT';
+      
+      console.log('Saving gallery image:', { url, method, data: galleryFormData });
 
       const res = await fetch(url, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(galleryFormData),
       });
+
+      const responseData = await res.json();
+      console.log('Gallery save response:', responseData);
 
       if (res.ok) {
         toast.success(isAddingGallery ? 'Gallery image added!' : 'Gallery image updated!');
@@ -810,10 +819,10 @@ The Yard Restaurant
         // Refresh gallery data
         await fetchGalleryData();
       } else {
-        const error = await res.json();
-        toast.error(error.error || 'Failed to save gallery image');
+        toast.error(responseData.error || 'Failed to save gallery image');
       }
-    } catch {
+    } catch (error) {
+      console.error('Gallery save error:', error);
       toast.error('Failed to save gallery image');
     } finally {
       setSavingGallery(false);
@@ -823,15 +832,20 @@ The Yard Restaurant
   const handleDeleteGallery = async (id: string) => {
     if (!confirm('Are you sure you want to delete this image?')) return;
     try {
+      console.log('Deleting gallery image:', id);
       const res = await fetch(`/api/gallery/${id}`, { method: 'DELETE' });
+      const responseData = await res.json();
+      console.log('Gallery delete response:', responseData);
+      
       if (res.ok) {
         toast.success('Gallery image deleted');
         // Refresh gallery data
         await fetchGalleryData();
       } else {
-        toast.error('Failed to delete gallery image');
+        toast.error(responseData.error || 'Failed to delete gallery image');
       }
-    } catch {
+    } catch (error) {
+      console.error('Gallery delete error:', error);
       toast.error('Failed to delete gallery image');
     }
   };
