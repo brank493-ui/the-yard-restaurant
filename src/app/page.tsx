@@ -234,17 +234,20 @@ export default function Home() {
     unsubscribersRef.current.forEach(unsub => unsub());
     unsubscribersRef.current = [];
     
-    // Gallery listener - real-time sync
+    // Gallery listener - real-time sync (only update if there's data)
     const galleryQuery = query(collection(db, 'gallery'), orderBy('createdAt', 'desc'));
     unsubscribersRef.current.push(onSnapshot(galleryQuery, (snapshot) => {
       const images = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data(),
       })) as GalleryImage[];
-      setGalleryImages(images);
+      // Only update if there's data from Firebase, otherwise keep the API data
+      if (images.length > 0) {
+        setGalleryImages(images);
+      }
     }));
     
-    // News listener
+    // News listener - only update if there's data
     const newsQuery = query(collection(db, 'news'), orderBy('createdAt', 'desc'));
     unsubscribersRef.current.push(onSnapshot(newsQuery, (snapshot) => {
       const items = snapshot.docs.map(doc => ({
@@ -252,7 +255,10 @@ export default function Home() {
         ...doc.data(),
         createdAt: doc.data().createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
       })) as NewsItem[];
-      setNewsItems(items);
+      // Only update if there's data from Firebase, otherwise keep the API data
+      if (items.length > 0) {
+        setNewsItems(items);
+      }
     }));
     
     // Reviews listener
@@ -267,7 +273,7 @@ export default function Home() {
       }
     }));
     
-    // Special Offers listener
+    // Special Offers listener - only update if there's data
     const offersQuery = query(collection(db, 'specialOffers'), orderBy('order', 'asc'));
     unsubscribersRef.current.push(onSnapshot(offersQuery, (snapshot) => {
       const offersData = snapshot.docs.map(doc => ({
@@ -276,7 +282,10 @@ export default function Home() {
       }));
       // Filter only active offers
       const activeOffers = offersData.filter((offer: Record<string, unknown>) => offer.isActive !== false);
-      setSpecialOffers(activeOffers);
+      // Only update if there's data from Firebase, otherwise keep the API data
+      if (activeOffers.length > 0) {
+        setSpecialOffers(activeOffers);
+      }
     }));
     
     return () => {
