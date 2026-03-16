@@ -15,8 +15,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { toast } from 'sonner';
 import { 
   Users, Package, Calendar, DollarSign, Clock, CheckCircle, AlertCircle, CreditCard, 
-  Loader2, Search, ChevronLeft, ChevronRight, Download, Bell, BarChart3, Eye, 
-  LogOut, Menu, Home, Utensils, MessageSquare, ArrowLeft, X, Image, Star, 
+  Loader2, Search, ChevronLeft, ChevronRight, Download, Bell, BarChart3, Eye, EyeOff,
+  LogOut, Menu, Home, Utensils, MessageSquare, ArrowLeft, ArrowDown, ArrowUp, X, Image, Star, 
   Edit, Trash2, Plus, Save, ChefHat, Gift, FileText
 } from 'lucide-react';
 import { format, startOfDay, endOfDay } from 'date-fns';
@@ -220,6 +220,17 @@ export default function AdminDashboard() {
     } catch { toast.error('Failed to update'); }
   };
   
+  // Toggle menu item availability (move between boards)
+  const handleToggleAvailability = async (item: MenuItem, makeAvailable: boolean) => {
+    try {
+      const res = await fetch(`/api/menu/${item.id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ isAvailable: makeAvailable }) });
+      if (res.ok) {
+        toast.success(makeAvailable ? `"${item.name}" is now visible on the website menu` : `"${item.name}" removed from website menu`);
+        setMenuItems(prev => prev.map(m => m.id === item.id ? { ...m, isAvailable: makeAvailable } : m));
+      }
+    } catch { toast.error('Failed to update'); }
+  };
+  
   // Loading
   if (authLoading || loading) return <div className="h-screen bg-gray-950 flex items-center justify-center"><Loader2 className="w-12 h-12 animate-spin text-amber-500" /></div>;
   if (!user || !isAdmin) return <div className="h-screen bg-gray-950 flex items-center justify-center"><div className="text-center"><AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" /><p className="text-white text-lg">Access Denied</p></div></div>;
@@ -231,9 +242,8 @@ export default function AdminDashboard() {
     { id: 'events', icon: Utensils, label: 'Events' },
     { id: 'payments', icon: CreditCard, label: 'Payments' },
     { id: 'users', icon: Users, label: 'Users' },
-    { id: 'reviews', icon: MessageSquare, label: 'Reviews' },
-    { id: 'offers', icon: Gift, label: 'Special Offers' },
-    { id: 'news', icon: FileText, label: 'Latest News' },
+    { id: 'offers', icon: Gift, label: 'Special Offers', badge: 'New', badgeColor: 'bg-green-600' },
+    { id: 'news', icon: FileText, label: 'Latest News', badge: 'New', badgeColor: 'bg-blue-600' },
     { id: 'menu', icon: Utensils, label: 'Menu' },
     { id: 'recommendations', icon: ChefHat, label: 'Chef\'s Picks' },
     { id: 'gallery', icon: Image, label: 'Gallery' },
@@ -252,9 +262,13 @@ export default function AdminDashboard() {
           <h1 className="text-lg font-bold text-amber-500">The Yard Admin</h1>
           <button onClick={() => setSidebarOpen(false)} className="p-2 rounded-lg hover:bg-gray-800 text-gray-400 lg:hidden"><X className="w-5 h-5" /></button>
         </div>
-        <nav className="flex-1 p-2 space-y-1 overflow-y-auto">
+        <nav className="flex-1 p-2 space-y-0.5 overflow-y-auto">
           {navItems.map(item => (
-            <button key={item.id} onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }} className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all ${activeSection === item.id ? 'bg-amber-500/20 text-amber-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}><item.icon className="w-5 h-5 flex-shrink-0" /><span className="text-sm">{item.label}</span></button>
+            <button key={item.id} onClick={() => { setActiveSection(item.id); setSidebarOpen(false); }} className={`w-full flex items-center gap-2 px-3 py-2 rounded-lg transition-all ${activeSection === item.id ? 'bg-amber-500/20 text-amber-500 border-l-2 border-amber-500' : 'text-gray-400 hover:bg-gray-800 hover:text-white'}`}>
+              <item.icon className="w-4 h-4 flex-shrink-0" />
+              <span className="text-xs flex-1 text-left">{item.label}</span>
+              {item.badge && <Badge className={`${item.badgeColor} text-[10px] px-1.5 py-0`}>{item.badge}</Badge>}
+            </button>
           ))}
         </nav>
         <div className="p-4 border-t border-gray-800 flex-shrink-0">
@@ -322,34 +336,107 @@ export default function AdminDashboard() {
           {/* REVIEWS */}
           {activeSection === 'reviews' && <Card className="bg-gray-900 border-gray-800"><CardHeader><CardTitle className="text-white text-sm lg:text-base">Reviews ({reviews.length})</CardTitle></CardHeader><CardContent><div className="space-y-2 lg:space-y-3">{reviews.map(r => (<div key={r.id} className="p-3 lg:p-4 bg-gray-800/50 rounded-lg flex flex-col sm:flex-row justify-between gap-2"><div><div className="flex items-center gap-2"><p className="text-white text-sm font-medium">{r.name}</p><div className="flex">{[...Array(5)].map((_, i) => <span key={i} className={`text-xs ${i<r.rating ? 'text-amber-500' : 'text-gray-600'}`}>★</span>)}</div></div><p className="text-gray-300 text-xs lg:text-sm mt-1">{r.text}</p></div><Badge className={`${r.approved ? 'bg-green-500' : 'bg-yellow-500'} text-xs w-fit`}>{r.approved ? 'Approved' : 'Pending'}</Badge></div>))}{reviews.length === 0 && <p className="text-center text-gray-500 py-8 text-sm">No reviews</p>}</div></CardContent></Card>}
           
-          {/* MENU MANAGEMENT */}
+          {/* MENU MANAGEMENT - Two Board Layout */}
           {activeSection === 'menu' && (
-            <div className="space-y-4">
+            <div className="space-y-6">
+              {/* Header */}
               <div className="flex justify-between items-center">
-                <h3 className="text-white font-medium">All Menu Items ({menuItems.length})</h3>
-                <Button onClick={() => { setEditingItem(null); setShowMenuModal(true); }} size="sm" className="bg-amber-500 hover:bg-amber-600"><Plus className="w-4 h-4 mr-2" />Add Item</Button>
+                <div>
+                  <h3 className="text-white font-bold text-xl">Menu Management</h3>
+                  <p className="text-gray-400 text-sm">Upper board = visible on website, Lower board = available to add</p>
+                </div>
+                <Button onClick={() => { setEditingItem(null); setShowMenuModal(true); }} className="bg-green-600 hover:bg-green-500"><Plus className="w-4 h-4 mr-2" />Add New Item</Button>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {menuItems.map(item => (
-                  <Card key={item.id} className="bg-gray-900 border-gray-800 overflow-hidden">
-                    <div className="h-32 bg-gray-800 relative">
-                      <img src={item.image || `/food-${item.category}.png`} alt={item.name} className="w-full h-full object-cover" />
-                      {item.isPopular && <Badge className="absolute top-2 left-2 bg-amber-500 text-xs"><Star className="w-3 h-3 mr-1" />Featured</Badge>}
-                      {!item.isAvailable && <div className="absolute inset-0 bg-black/50 flex items-center justify-center"><span className="text-white text-sm">Unavailable</span></div>}
+              
+              {/* Two Board Layout */}
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                {/* Upper Board - Visible on Website */}
+                <Card className="bg-gradient-to-b from-green-900/20 to-gray-900 border-green-500/40">
+                  <CardHeader className="border-b border-green-500/30 pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Eye className="h-5 w-5 text-green-400" />
+                        Upper Board
+                      </CardTitle>
+                      <Badge className="bg-green-600 text-white">{menuItems.filter(m => m.isAvailable).length} items</Badge>
                     </div>
-                    <CardContent className="p-3">
-                      <p className="text-white font-medium text-sm truncate">{item.name}</p>
-                      <p className="text-gray-400 text-xs truncate">{item.description}</p>
-                      <p className="text-amber-500 font-bold text-sm mt-1">{formatCurrency(item.price)}</p>
-                      <div className="flex gap-1 mt-2">
-                        <Button size="sm" variant="outline" onClick={() => { setEditingItem(item); setShowMenuModal(true); }} className="flex-1 border-gray-700 text-white h-7 text-xs"><Edit className="w-3 h-3 mr-1" />Edit</Button>
-                        <Button size="sm" variant="outline" onClick={() => handleToggleFeatured(item)} className={`flex-1 h-7 text-xs ${item.isPopular ? 'border-amber-500 text-amber-400' : 'border-gray-700 text-white'}`}><Star className="w-3 h-3 mr-1" />{item.isPopular ? 'Unfeature' : 'Feature'}</Button>
+                    <p className="text-green-400/80 text-xs">Items visible on the website menu</p>
+                  </CardHeader>
+                  <CardContent className="p-4 max-h-[400px] overflow-y-auto">
+                    {menuItems.filter(m => m.isAvailable).length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <EyeOff className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>No items visible on website</p>
+                        <p className="text-xs">Add items from the lower board</p>
                       </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                    ) : (
+                      <div className="space-y-3">
+                        {menuItems.filter(m => m.isAvailable).map(item => (
+                          <div key={item.id} className="p-3 rounded-lg border border-green-500/30 bg-green-900/10 hover:border-green-400 transition-all">
+                            <div className="flex items-start gap-3">
+                              {item.image && <img src={item.image} alt={item.name} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2">
+                                  <p className="text-white font-medium text-sm truncate">{item.name}</p>
+                                  {item.isPopular && <Star className="w-4 h-4 text-amber-400 fill-current" />}
+                                </div>
+                                <p className="text-amber-400 font-bold">{formatCurrency(item.price)}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-gray-700">
+                              <Button size="sm" variant="outline" onClick={() => handleToggleAvailability(item, false)} className="flex-1 border-orange-500 text-orange-400 h-7 text-xs"><ArrowDown className="w-3 h-3 mr-1" />Remove</Button>
+                              <Button size="sm" variant="outline" onClick={() => { setEditingItem(item); setShowMenuModal(true); }} className="border-blue-500 text-blue-400 h-7 w-7 p-0"><Edit className="w-3 h-3" /></Button>
+                              <Button size="sm" variant="outline" onClick={() => handleToggleFeatured(item)} className={`h-7 w-7 p-0 ${item.isPopular ? 'border-amber-500 text-amber-400' : 'border-gray-600 text-gray-400'}`}><Star className="w-3 h-3" /></Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                {/* Lower Board - Available to Add */}
+                <Card className="bg-gray-900 border-gray-800">
+                  <CardHeader className="border-b border-gray-800 pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-white flex items-center gap-2">
+                        <Menu className="h-5 w-5 text-gray-400" />
+                        Lower Board
+                      </CardTitle>
+                      <Badge className="bg-gray-600 text-white">{menuItems.filter(m => !m.isAvailable).length} items</Badge>
+                    </div>
+                    <p className="text-gray-400 text-xs">Items available to add to website menu</p>
+                  </CardHeader>
+                  <CardContent className="p-4 max-h-[400px] overflow-y-auto">
+                    {menuItems.filter(m => !m.isAvailable).length === 0 ? (
+                      <div className="text-center py-8 text-gray-500">
+                        <Menu className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                        <p>No hidden items</p>
+                        <p className="text-xs">All items are visible on website</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {menuItems.filter(m => !m.isAvailable).map(item => (
+                          <div key={item.id} className="p-3 rounded-lg border border-gray-700 bg-gray-800/50 hover:border-gray-600 transition-all">
+                            <div className="flex items-start gap-3">
+                              {item.image && <img src={item.image} alt={item.name} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-white font-medium text-sm truncate">{item.name}</p>
+                                <p className="text-amber-400 font-bold">{formatCurrency(item.price)}</p>
+                              </div>
+                            </div>
+                            <div className="flex gap-1 mt-2 pt-2 border-t border-gray-700">
+                              <Button size="sm" variant="outline" onClick={() => handleToggleAvailability(item, true)} className="flex-1 border-green-500 text-green-400 hover:bg-green-500/20 h-7 text-xs"><ArrowUp className="w-3 h-3 mr-1" />Add to Menu</Button>
+                              <Button size="sm" variant="outline" onClick={() => { setEditingItem(item); setShowMenuModal(true); }} className="border-blue-500 text-blue-400 h-7 w-7 p-0"><Edit className="w-3 h-3" /></Button>
+                              <Button size="sm" variant="outline" onClick={() => handleDeleteMenuItem(item.id)} className="border-red-500 text-red-400 h-7 w-7 p-0"><Trash2 className="w-3 h-3" /></Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
               </div>
-              {menuItems.length === 0 && <p className="text-center text-gray-500 py-8">No menu items</p>}
             </div>
           )}
           
