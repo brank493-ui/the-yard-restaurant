@@ -27,7 +27,7 @@ import {
   Home, LogOut, Menu, Star, Eye, Search, Filter, Download, RefreshCw,
   TrendingUp, TrendingDown, Activity, PieChart, FileText, Mail, Phone,
   ChevronLeft, ChevronRight, X, Settings, ChefHat, MessageSquare, Image,
-  CalendarDays, Receipt, ArrowUpRight, ArrowDownRight, Shield
+  CalendarDays, Receipt, ArrowUpRight, ArrowDownRight, Shield, Gift
 } from 'lucide-react';
 
 // Import components
@@ -41,6 +41,7 @@ import AdminLogsPanel from '@/components/admin/AdminLogsPanel';
 import ChefPicksManager from '@/components/admin/ChefPicksManager';
 import MenuManager from '@/components/admin/MenuManager';
 import GalleryManager from '@/components/admin/GalleryManager';
+import OffersManager from '@/components/admin/OffersManager';
 import { useAdminRealtime } from '@/hooks/useAdminSSE';
 import { DailyStats } from '@/lib/services/adminService';
 
@@ -134,6 +135,7 @@ const navItems = [
   { id: 'events', label: 'Events', icon: Star },
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'chefpicks', label: "Chef's Picks", icon: ChefHat },
+  { id: 'offers', label: 'Special Offers', icon: Gift },
   { id: 'menu', label: 'Menu', icon: Menu },
   { id: 'gallery', label: 'Gallery', icon: Image },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -1175,6 +1177,11 @@ export default function AdminDashboard() {
           {/* ============== GALLERY SECTION ============== */}
           {activeSection === 'gallery' && (
             <GalleryManager />
+          )}
+          
+          {/* ============== SPECIAL OFFERS SECTION ============== */}
+          {activeSection === 'offers' && (
+            <OffersManager />
           )}
           
           {/* ============== LOGS SECTION ============== */}
