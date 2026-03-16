@@ -194,7 +194,6 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
-  const [specialOffers, setSpecialOffers] = useState<SpecialOffer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   

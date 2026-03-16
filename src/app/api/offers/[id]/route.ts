@@ -14,22 +14,22 @@ export async function GET(
     // If no Firebase, use in-memory store
     if (!adminDb) {
       const store = getInMemoryStore();
-      const offer = store.getSpecialOffer(id);
+      const item = store.getSpecialOffer(id);
       
-      if (!offer) {
+      if (!item) {
         return NextResponse.json({ error: 'Special offer not found' }, { status: 404 });
       }
       
       return NextResponse.json({
-        id: offer.id,
-        title: offer.title,
-        titleFr: offer.titleFr,
-        description: offer.description,
-        descriptionFr: offer.descriptionFr,
-        icon: offer.icon,
-        isActive: offer.isActive,
-        order: offer.order,
-        createdAt: offer.createdAt instanceof Date ? offer.createdAt.toISOString() : offer.createdAt,
+        id: item.id,
+        title: item.title,
+        titleFr: item.titleFr,
+        description: item.description,
+        descriptionFr: item.descriptionFr,
+        icon: item.icon,
+        isActive: item.isActive,
+        order: item.order,
+        createdAt: item.createdAt instanceof Date ? item.createdAt.toISOString() : item.createdAt,
       });
     }
 
@@ -49,7 +49,7 @@ export async function GET(
       icon: data?.icon || '🎁',
       isActive: data?.isActive !== false,
       order: data?.order || 0,
-      createdAt: data?.createdAt?.toDate?.()?.toISOString() || new Date().toISOString(),
+      createdAt: data?.createdAt?.toDate?.()?.toISOString() || data?.createdAt,
     });
   } catch (error) {
     console.error('Error fetching special offer:', error);
@@ -65,21 +65,21 @@ export async function PUT(
   try {
     const { id } = await params;
     const data = await request.json();
-    console.log('Special Offers API PUT:', id, data);
+    console.log('Offers API PUT:', id, data);
     
     const adminDb = getAdminDb();
 
     // If no Firebase, use in-memory store
     if (!adminDb) {
       const store = getInMemoryStore();
-      const existingOffer = store.getSpecialOffer(id);
+      const existingItem = store.getSpecialOffer(id);
       
-      if (!existingOffer) {
-        console.log('Special Offers API PUT: Offer not found:', id);
+      if (!existingItem) {
+        console.log('Offers API PUT: Item not found:', id);
         return NextResponse.json({ error: 'Special offer not found' }, { status: 404 });
       }
       
-      const updatedOffer = store.updateSpecialOffer(id, {
+      const updatedItem = store.updateSpecialOffer(id, {
         title: data.title,
         titleFr: data.titleFr,
         description: data.description,
@@ -89,19 +89,19 @@ export async function PUT(
         order: data.order,
       });
       
-      console.log('Special Offers API PUT: Updated offer:', id);
+      console.log('Offers API PUT: Updated item:', id);
       
       return NextResponse.json({
         success: true,
         id,
-        title: updatedOffer?.title,
-        titleFr: updatedOffer?.titleFr,
-        description: updatedOffer?.description,
-        descriptionFr: updatedOffer?.descriptionFr,
-        icon: updatedOffer?.icon,
-        isActive: updatedOffer?.isActive,
-        order: updatedOffer?.order,
-        updatedAt: updatedOffer?.updatedAt instanceof Date ? updatedOffer.updatedAt.toISOString() : updatedOffer?.updatedAt,
+        title: updatedItem?.title,
+        titleFr: updatedItem?.titleFr,
+        description: updatedItem?.description,
+        descriptionFr: updatedItem?.descriptionFr,
+        icon: updatedItem?.icon,
+        isActive: updatedItem?.isActive,
+        order: updatedItem?.order,
+        updatedAt: updatedItem?.updatedAt instanceof Date ? updatedItem.updatedAt.toISOString() : updatedItem?.updatedAt,
       });
     }
 
@@ -112,17 +112,16 @@ export async function PUT(
     }
 
     // Update the item
-    const updateData: Record<string, unknown> = {
+    const updateData = {
+      title: data.title,
+      titleFr: data.titleFr,
+      description: data.description,
+      descriptionFr: data.descriptionFr,
+      icon: data.icon,
+      isActive: data.isActive,
+      order: data.order,
       updatedAt: new Date(),
     };
-    
-    if (data.title !== undefined) updateData.title = data.title;
-    if (data.titleFr !== undefined) updateData.titleFr = data.titleFr;
-    if (data.description !== undefined) updateData.description = data.description;
-    if (data.descriptionFr !== undefined) updateData.descriptionFr = data.descriptionFr;
-    if (data.icon !== undefined) updateData.icon = data.icon;
-    if (data.isActive !== undefined) updateData.isActive = data.isActive;
-    if (data.order !== undefined) updateData.order = data.order;
 
     await adminDb.collection('specialOffers').doc(id).update(updateData);
 
@@ -145,7 +144,7 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params;
-    console.log('Special Offers API DELETE:', id);
+    console.log('Offers API DELETE:', id);
     
     const adminDb = getAdminDb();
 
@@ -155,11 +154,11 @@ export async function DELETE(
       const deleted = store.deleteSpecialOffer(id);
       
       if (!deleted) {
-        console.log('Special Offers API DELETE: Offer not found:', id);
+        console.log('Offers API DELETE: Item not found:', id);
         return NextResponse.json({ error: 'Special offer not found' }, { status: 404 });
       }
       
-      console.log('Special Offers API DELETE: Deleted offer:', id);
+      console.log('Offers API DELETE: Deleted item:', id);
       return NextResponse.json({ success: true, message: 'Special offer deleted' });
     }
 
@@ -192,23 +191,23 @@ export async function PATCH(
     // If no Firebase, use in-memory store
     if (!adminDb) {
       const store = getInMemoryStore();
-      const updatedOffer = store.updateSpecialOffer(id, data);
+      const updatedItem = store.updateSpecialOffer(id, data);
       
-      if (!updatedOffer) {
+      if (!updatedItem) {
         return NextResponse.json({ error: 'Special offer not found' }, { status: 404 });
       }
       
       return NextResponse.json({ 
         success: true, 
         id,
-        title: updatedOffer.title,
-        titleFr: updatedOffer.titleFr,
-        description: updatedOffer.description,
-        descriptionFr: updatedOffer.descriptionFr,
-        icon: updatedOffer.icon,
-        isActive: updatedOffer.isActive,
-        order: updatedOffer.order,
-        updatedAt: updatedOffer.updatedAt instanceof Date ? updatedOffer.updatedAt.toISOString() : updatedOffer.updatedAt,
+        title: updatedItem.title,
+        titleFr: updatedItem.titleFr,
+        description: updatedItem.description,
+        descriptionFr: updatedItem.descriptionFr,
+        icon: updatedItem.icon,
+        isActive: updatedItem.isActive,
+        order: updatedItem.order,
+        updatedAt: updatedItem.updatedAt instanceof Date ? updatedItem.updatedAt.toISOString() : updatedItem.updatedAt,
       });
     }
 

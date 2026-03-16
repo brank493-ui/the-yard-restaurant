@@ -26,6 +26,7 @@ export async function GET(request: NextRequest) {
         createdAt: offer.createdAt instanceof Date ? offer.createdAt.toISOString() : offer.createdAt,
         updatedAt: offer.updatedAt instanceof Date ? offer.updatedAt.toISOString() : offer.updatedAt,
       }));
+      console.log('Offers API: Returning', serializedOffers.length, 'offers from in-memory store');
       return NextResponse.json(serializedOffers);
     }
 
@@ -39,16 +40,16 @@ export async function GET(request: NextRequest) {
       
       // Seed Firestore
       const batch = adminDb.batch();
-      offers.forEach((offer) => {
-        const docRef = adminDb.collection('specialOffers').doc(offer.id);
+      offers.forEach((item) => {
+        const docRef = adminDb.collection('specialOffers').doc(item.id);
         batch.set(docRef, {
-          title: offer.title,
-          titleFr: offer.titleFr,
-          description: offer.description,
-          descriptionFr: offer.descriptionFr,
-          icon: offer.icon,
-          isActive: offer.isActive,
-          order: offer.order,
+          title: item.title,
+          titleFr: item.titleFr,
+          description: item.description,
+          descriptionFr: item.descriptionFr,
+          icon: item.icon,
+          isActive: item.isActive,
+          order: item.order,
           createdAt: new Date(),
         });
       });
@@ -65,7 +66,7 @@ export async function GET(request: NextRequest) {
         order: offer.order,
         createdAt: offer.createdAt instanceof Date ? offer.createdAt.toISOString() : offer.createdAt,
       }));
-      return NextResponse.json(serializedOffers);
+      return NextResponse.json(showAll ? serializedOffers : serializedOffers.filter(o => o.isActive));
     }
 
     // Return Firestore data
@@ -84,9 +85,9 @@ export async function GET(request: NextRequest) {
       };
     });
 
-    return NextResponse.json(offers);
+    return NextResponse.json(showAll ? offers : offers.filter(o => o.isActive));
   } catch (error) {
-    console.error('Error fetching special offers:', error);
+    console.error('Error fetching offers:', error);
     // Fallback to in-memory store on error
     const store = getInMemoryStore();
     const offers = store.getSpecialOffers(true);
@@ -108,7 +109,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const data = await request.json();
-    console.log('Special Offers API POST:', data);
+    console.log('Offers API POST:', data);
     
     if (!data.title || !data.description) {
       return NextResponse.json({ error: 'Title and description are required' }, { status: 400 });
@@ -129,7 +130,7 @@ export async function POST(request: NextRequest) {
         order: data.order,
       });
       
-      console.log('Special Offers API: Created offer in memory store:', newOffer.id);
+      console.log('Offers API: Created offer in memory store:', newOffer.id);
       
       return NextResponse.json({
         id: newOffer.id,
@@ -148,7 +149,7 @@ export async function POST(request: NextRequest) {
     const snapshot = await adminDb.collection('specialOffers').orderBy('order', 'desc').limit(1).get();
     const maxOrder = snapshot.empty ? 0 : (snapshot.docs[0].data().order || 0);
 
-    const offerData = {
+    const offerItem = {
       title: data.title,
       titleFr: data.titleFr || data.title,
       description: data.description,
@@ -159,17 +160,17 @@ export async function POST(request: NextRequest) {
       createdAt: new Date(),
     };
 
-    const docRef = await adminDb.collection('specialOffers').add(offerData);
+    const docRef = await adminDb.collection('specialOffers').add(offerItem);
     
     return NextResponse.json({ 
       id: docRef.id, 
-      ...offerData,
+      ...offerItem,
       createdAt: new Date().toISOString(),
     }, { status: 201 });
   } catch (error) {
-    console.error('Error creating special offer:', error);
+    console.error('Error creating offer:', error);
     return NextResponse.json(
-      { error: 'Failed to create special offer' },
+      { error: 'Failed to create offer' },
       { status: 500 }
     );
   }
