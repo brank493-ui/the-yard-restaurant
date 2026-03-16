@@ -135,6 +135,7 @@ const navItems = [
   { id: 'reservations', label: 'Reservations', icon: CalendarIcon },
   { id: 'events', label: 'Events', icon: Star },
   { id: 'payments', label: 'Payments', icon: CreditCard },
+  { id: 'users', label: 'Users', icon: Users },
   { id: 'chefpicks', label: "Chef's Picks", icon: ChefHat },
   { id: 'offers', label: 'Special Offers', icon: Gift },
   { id: 'news', label: 'Latest News', icon: FileText },
@@ -651,30 +652,34 @@ export default function AdminDashboard() {
         </div>
         
         {/* Navigation */}
-        <ScrollArea className="flex-1 py-4">
-          <nav className="px-3 space-y-1">
-            {navItems.map((item) => (
-              <button
-                key={item.id}
-                onClick={() => {
-                  setActiveSection(item.id);
-                  setSidebarOpen(false);
-                }}
-                className={`
-                  w-full flex items-center gap-3 px-3 py-2.5 rounded-lg
-                  transition-all duration-200
-                  ${activeSection === item.id 
-                    ? 'bg-amber-500/20 text-amber-400' 
-                    : 'text-stone-400 hover:bg-stone-800 hover:text-white'
-                  }
-                `}
-              >
-                <item.icon className="w-5 h-5 shrink-0" />
-                <span className="text-sm font-medium">{item.label}</span>
-              </button>
-            ))}
-          </nav>
-        </ScrollArea>
+        <nav className="flex-1 px-3 py-2 space-y-0.5 overflow-y-auto">
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => {
+                setActiveSection(item.id);
+                setSidebarOpen(false);
+              }}
+              className={`
+                w-full flex items-center gap-2.5 px-3 py-2 rounded-lg
+                transition-all duration-200 text-left
+                ${activeSection === item.id 
+                  ? 'bg-amber-500/20 text-amber-400 border-l-2 border-amber-500' 
+                  : 'text-stone-400 hover:bg-stone-800 hover:text-white'
+                }
+              `}
+            >
+              <item.icon className="w-4 h-4 shrink-0" />
+              <span className="text-xs font-medium">{item.label}</span>
+              {item.id === 'offers' && (
+                <Badge className="ml-auto bg-green-600 text-[10px] px-1.5 py-0">New</Badge>
+              )}
+              {item.id === 'news' && (
+                <Badge className="ml-auto bg-blue-600 text-[10px] px-1.5 py-0">New</Badge>
+              )}
+            </button>
+          ))}
+        </nav>
         
         {/* User Info */}
         <div className="p-4 border-t border-stone-800">
@@ -1151,6 +1156,62 @@ export default function AdminDashboard() {
                             >
                               Confirm Payment
                             </Button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </ScrollArea>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* ============== USERS SECTION ============== */}
+          {activeSection === 'users' && (
+            <div className="space-y-6">
+              <Card className="bg-stone-800 border-stone-700">
+                <CardHeader>
+                  <CardTitle className="text-white flex items-center gap-2">
+                    <Users className="h-5 w-5 text-blue-400" />
+                    Registered Users
+                  </CardTitle>
+                  <CardDescription className="text-stone-400">
+                    All user registrations from the website
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <ScrollArea className="h-[500px]">
+                    {users.length === 0 ? (
+                      <div className="text-center py-12 text-stone-500">
+                        <Users className="h-12 w-12 mx-auto mb-3 opacity-50" />
+                        <p>No registered users yet</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-3">
+                        {users.map(usr => (
+                          <div key={usr.id} className="p-4 bg-stone-700/50 rounded-lg hover:bg-stone-700 transition-colors">
+                            <div className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <Avatar className="h-10 w-10 border-2 border-amber-500">
+                                  <AvatarFallback className="bg-stone-600 text-amber-400">
+                                    {usr.name?.charAt(0) || usr.displayName?.charAt(0) || usr.email?.charAt(0).toUpperCase() || 'U'}
+                                  </AvatarFallback>
+                                </Avatar>
+                                <div>
+                                  <p className="text-white font-medium">{usr.name || usr.displayName || 'User'}</p>
+                                  <p className="text-stone-400 text-sm">{usr.email}</p>
+                                  {usr.phone && <p className="text-stone-500 text-xs">{usr.phone}</p>}
+                                </div>
+                              </div>
+                              <div className="flex items-center gap-3">
+                                <Badge className={usr.role === 'ADMIN' ? 'bg-red-600' : usr.role === 'MANAGER' ? 'bg-purple-600' : 'bg-stone-600'}>
+                                  {usr.role || 'CUSTOMER'}
+                                </Badge>
+                                <span className="text-stone-500 text-xs">
+                                  {usr.createdAt ? formatDate(usr.createdAt) : 'N/A'}
+                                </span>
+                              </div>
+                            </div>
                           </div>
                         ))}
                       </div>
