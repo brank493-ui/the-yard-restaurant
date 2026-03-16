@@ -162,6 +162,17 @@ export default function Home() {
   // Gallery state
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
   
+  // Special Offers state
+  const [specialOffers, setSpecialOffers] = useState<{
+    id: string;
+    title: string;
+    titleFr?: string;
+    description: string;
+    descriptionFr?: string;
+    icon: string;
+    isActive: boolean;
+  }[]>([]);
+  
   // Real-time listeners reference
   const unsubscribersRef = useRef<Unsubscribe[]>([]);
 
@@ -172,10 +183,11 @@ export default function Home() {
   // Fallback fetch for non-menu data (demo mode)
   const fetchNonMenuData = useCallback(async () => {
     try {
-      const [reviewsRes, newsRes, galleryRes] = await Promise.all([
+      const [reviewsRes, newsRes, galleryRes, offersRes] = await Promise.all([
         fetch('/api/reviews'),
         fetch('/api/news'),
         fetch('/api/gallery'),
+        fetch('/api/offers'),
       ]);
       
       if (reviewsRes.ok) {
@@ -193,6 +205,11 @@ export default function Home() {
       if (galleryRes.ok) {
         const galleryData = await galleryRes.json();
         setGalleryImages(galleryData);
+      }
+      
+      if (offersRes.ok) {
+        const offersData = await offersRes.json();
+        setSpecialOffers(offersData);
       }
     } catch (error) {
       console.error('Failed to fetch data:', error);
@@ -246,6 +263,18 @@ export default function Home() {
       if (data.length > 0) {
         setReviews(data);
       }
+    }));
+    
+    // Special Offers listener
+    const offersQuery = query(collection(db, 'specialOffers'), orderBy('order', 'asc'));
+    unsubscribersRef.current.push(onSnapshot(offersQuery, (snapshot) => {
+      const offersData = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data(),
+      }));
+      // Filter only active offers
+      const activeOffers = offersData.filter((offer: Record<string, unknown>) => offer.isActive !== false);
+      setSpecialOffers(activeOffers);
     }));
     
     return () => {
@@ -500,17 +529,36 @@ export default function Home() {
         <div className="container mx-auto px-4">
           <h2 className="text-3xl font-bold text-center mb-2 font-serif"><span className="text-amber-400">{t.specials.title}</span> {t.specials.subtitle}</h2>
           <p className="text-center text-stone-400 mb-8">{t.specials.description}</p>
-          <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
-            {[[t.specials.lunchSpecial, t.specials.lunchDesc, '🍽️'], [t.specials.happyHour, t.specials.happyDesc, '🍸'], [t.specials.familyDeal, t.specials.familyDesc, '👨‍👩‍👧‍👦'], [t.specials.weekend, t.specials.weekendDesc, '🥐']].map(([title, desc, icon], i) => (
-              <Card key={i} className="bg-stone-800/80 border-amber-500/30 hover:border-amber-500 transition-all">
-                <CardContent className="p-4 text-center">
-                  <div className="text-4xl mb-2">{icon}</div>
-                  <h3 className="text-amber-400 font-bold mb-1">{title}</h3>
-                  <p className="text-stone-400 text-sm">{desc}</p>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {specialOffers.length > 0 ? (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {specialOffers.map((offer) => (
+                <Card key={offer.id} className="bg-stone-800/80 border-amber-500/30 hover:border-amber-500 transition-all">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-4xl mb-2">{offer.icon || '🎁'}</div>
+                    <h3 className="text-amber-400 font-bold mb-1">
+                      {lang === 'fr' && offer.titleFr ? offer.titleFr : offer.title}
+                    </h3>
+                    <p className="text-stone-400 text-sm">
+                      {lang === 'fr' && offer.descriptionFr ? offer.descriptionFr : offer.description}
+                    </p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          ) : (
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-4">
+              {/* Fallback to hardcoded offers if no dynamic offers */}
+              {[[t.specials.lunchSpecial, t.specials.lunchDesc, '🍽️'], [t.specials.happyHour, t.specials.happyDesc, '🍸'], [t.specials.familyDeal, t.specials.familyDesc, '👨‍👩‍👧‍👦'], [t.specials.weekend, t.specials.weekendDesc, '🥐']].map(([title, desc, icon], i) => (
+                <Card key={i} className="bg-stone-800/80 border-amber-500/30 hover:border-amber-500 transition-all">
+                  <CardContent className="p-4 text-center">
+                    <div className="text-4xl mb-2">{icon}</div>
+                    <h3 className="text-amber-400 font-bold mb-1">{title}</h3>
+                    <p className="text-stone-400 text-sm">{desc}</p>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       </section>
 
