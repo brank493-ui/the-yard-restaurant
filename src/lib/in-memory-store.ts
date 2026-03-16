@@ -29,6 +29,20 @@ export interface GalleryImage {
   updatedAt: Date;
 }
 
+// Special Offer interface
+export interface SpecialOffer {
+  id: string;
+  title: string;
+  titleFr?: string;
+  description: string;
+  descriptionFr?: string;
+  icon: string;
+  isActive: boolean;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
 // Initial menu data
 const initialMenuItems: MenuItem[] = [
   // Appetizers (Entrées)
@@ -88,16 +102,70 @@ const initialGalleryImages: GalleryImage[] = [
   { id: "g6", url: "/item-crevettes.png", title: "Crevettes Grillées", category: "food", createdAt: new Date(), updatedAt: new Date() },
 ];
 
+// Initial special offers data
+const initialSpecialOffers: SpecialOffer[] = [
+  { 
+    id: "so1", 
+    title: "Lunch Special", 
+    titleFr: "Déjeuner Spécial",
+    description: "20% off all main courses from 12pm-3pm on weekdays", 
+    descriptionFr: "20% de réduction sur tous les plats principaux de 12h-15h en semaine",
+    icon: "🍽️", 
+    isActive: true, 
+    order: 1,
+    createdAt: new Date(), 
+    updatedAt: new Date() 
+  },
+  { 
+    id: "so2", 
+    title: "Happy Hour", 
+    titleFr: "Happy Hour",
+    description: "Buy 1 Get 1 Free on cocktails from 5pm-7pm", 
+    descriptionFr: "Achetez 1 obtenez 1 gratuit sur les cocktails de 17h-19h",
+    icon: "🍸", 
+    isActive: true, 
+    order: 2,
+    createdAt: new Date(), 
+    updatedAt: new Date() 
+  },
+  { 
+    id: "so3", 
+    title: "Family Deal", 
+    titleFr: "Offre Famille",
+    description: "4-person meal with appetizers, mains & dessert - 25,000 XAF", 
+    descriptionFr: "Repas pour 4 avec entrées, plats et dessert - 25 000 XAF",
+    icon: "👨‍👩‍👧‍👦", 
+    isActive: true, 
+    order: 3,
+    createdAt: new Date(), 
+    updatedAt: new Date() 
+  },
+  { 
+    id: "so4", 
+    title: "Weekend Brunch", 
+    titleFr: "Brunch du Week-end",
+    description: "Free dessert with any breakfast order on weekends", 
+    descriptionFr: "Dessert gratuit avec toute commande de petit-déjeuner le week-end",
+    icon: "🥐", 
+    isActive: true, 
+    order: 4,
+    createdAt: new Date(), 
+    updatedAt: new Date() 
+  },
+];
+
 // Global in-memory store (singleton)
 class InMemoryStore {
   private static instance: InMemoryStore;
   private menuItems: MenuItem[];
   private galleryImages: GalleryImage[];
+  private specialOffers: SpecialOffer[];
   
   private constructor() {
     // Deep clone initial data
     this.menuItems = JSON.parse(JSON.stringify(initialMenuItems));
     this.galleryImages = JSON.parse(JSON.stringify(initialGalleryImages));
+    this.specialOffers = JSON.parse(JSON.stringify(initialSpecialOffers));
   }
   
   static getInstance(): InMemoryStore {
@@ -204,10 +272,62 @@ class InMemoryStore {
     return true;
   }
   
+  // Special Offers operations
+  getSpecialOffers(all: boolean = false): SpecialOffer[] {
+    const sorted = [...this.specialOffers].sort((a, b) => a.order - b.order);
+    if (all) {
+      return sorted;
+    }
+    return sorted.filter(offer => offer.isActive);
+  }
+  
+  getSpecialOffer(id: string): SpecialOffer | undefined {
+    return this.specialOffers.find(offer => offer.id === id);
+  }
+  
+  createSpecialOffer(data: Partial<SpecialOffer>): SpecialOffer {
+    const id = `offer_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const maxOrder = Math.max(0, ...this.specialOffers.map(o => o.order));
+    const newOffer: SpecialOffer = {
+      id,
+      title: data.title || '',
+      titleFr: data.titleFr || data.title || '',
+      description: data.description || '',
+      descriptionFr: data.descriptionFr || data.description || '',
+      icon: data.icon || '🎁',
+      isActive: data.isActive !== false,
+      order: data.order ?? (maxOrder + 1),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.specialOffers.push(newOffer);
+    return newOffer;
+  }
+  
+  updateSpecialOffer(id: string, data: Partial<SpecialOffer>): SpecialOffer | null {
+    const index = this.specialOffers.findIndex(offer => offer.id === id);
+    if (index === -1) return null;
+    
+    this.specialOffers[index] = {
+      ...this.specialOffers[index],
+      ...data,
+      updatedAt: new Date(),
+    };
+    return this.specialOffers[index];
+  }
+  
+  deleteSpecialOffer(id: string): boolean {
+    const index = this.specialOffers.findIndex(offer => offer.id === id);
+    if (index === -1) return false;
+    this.specialOffers.splice(index, 1);
+    return true;
+  }
+  
   // Reset to initial data (for testing)
   reset() {
     this.menuItems = JSON.parse(JSON.stringify(initialMenuItems));
     this.galleryImages = JSON.parse(JSON.stringify(initialGalleryImages));
+    this.specialOffers = JSON.parse(JSON.stringify(initialSpecialOffers));
   }
 }
 

@@ -25,7 +25,7 @@ import {
 import { 
   X, ArrowLeft, Plus, Pencil, Eye, EyeOff, Trash2, FileText, CreditCard, 
   CheckCircle, Clock, Package, Calendar, Users, DollarSign, Loader2, 
-  Zap, ArrowUp, ArrowDown, ChefHat, Star, Image as ImageIcon
+  Zap, ArrowUp, ArrowDown, ChefHat, Star, Image as ImageIcon, Gift
 } from 'lucide-react';
 
 // Local MenuItem interface for admin operations
@@ -104,6 +104,17 @@ interface GalleryImage {
   category: string;
 }
 
+interface SpecialOffer {
+  id: string;
+  title: string;
+  titleFr?: string;
+  description: string;
+  descriptionFr?: string;
+  icon: string;
+  isActive: boolean;
+  order: number;
+}
+
 interface User {
   id: string;
   uid: string;
@@ -143,6 +154,17 @@ const galleryCategories = [
   { value: 'private', label: 'Private Events', icon: '🎉' },
 ];
 
+const offerIcons = [
+  { value: '🍽️', label: 'Food' },
+  { value: '🍸', label: 'Drinks' },
+  { value: '👨‍👩‍👧‍👦', label: 'Family' },
+  { value: '🥐', label: 'Breakfast' },
+  { value: '🎁', label: 'Gift/Special' },
+  { value: '🎉', label: 'Celebration' },
+  { value: '⏰', label: 'Time-based' },
+  { value: '💰', label: 'Discount' },
+];
+
 const paymentMethods = [
   { value: 'ORANGE_MONEY', label: 'Orange Money', icon: '🟠' },
   { value: 'MTN_MONEY', label: 'MTN Money', icon: '🟡' },
@@ -172,6 +194,7 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
   const [menuItems, setMenuItems] = useState<MenuItem[]>([]);
   const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
   const [galleryImages, setGalleryImages] = useState<GalleryImage[]>([]);
+  const [specialOffers, setSpecialOffers] = useState<SpecialOffer[]>([]);
   const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   
@@ -226,6 +249,20 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
     category: 'food',
   });
   const [savingGallery, setSavingGallery] = useState(false);
+
+  // Special Offers state
+  const [specialOffers, setSpecialOffers] = useState<SpecialOffer[]>([]);
+  const [editingOffer, setEditingOffer] = useState<SpecialOffer | null>(null);
+  const [isAddingOffer, setIsAddingOffer] = useState(false);
+  const [offerFormData, setOfferFormData] = useState<Partial<SpecialOffer>>({
+    title: '',
+    titleFr: '',
+    description: '',
+    descriptionFr: '',
+    icon: '🎁',
+    isActive: true,
+  });
+  const [savingOffer, setSavingOffer] = useState(false);
 
   // Featured menu items (chef's picks)
   const [featuredMenuItems, setFeaturedMenuItems] = useState<Set<string>>(new Set());
@@ -324,6 +361,18 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
       })
     );
 
+    // Special Offers listener
+    const offersQuery = query(collection(db, 'specialOffers'), orderBy('order', 'asc'));
+    unsubscribersRef.current.push(
+      onSnapshot(offersQuery, (snapshot) => {
+        const offersData = snapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data(),
+        })) as SpecialOffer[];
+        setSpecialOffers(offersData);
+      })
+    );
+
     // Users listener
     const usersQuery = query(collection(db, 'users'), orderBy('createdAt', 'desc'));
     unsubscribersRef.current.push(
@@ -377,12 +426,13 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
       const token = await user?.getIdToken();
       const headers = token ? { Authorization: `Bearer ${token}` } : {};
 
-      const [ordersRes, resRes, menuRes, newsRes, galleryRes] = await Promise.all([
+      const [ordersRes, resRes, menuRes, newsRes, galleryRes, offersRes] = await Promise.all([
         fetch('/api/orders', { headers }),
         fetch('/api/reservations', { headers }),
         fetch('/api/menu?all=true'),
         fetch('/api/news'),
         fetch('/api/gallery'),
+        fetch('/api/offers?all=true'),
       ]);
 
       if (ordersRes.ok) {
@@ -409,6 +459,10 @@ export function AdminDashboard({ open, onOpenChange, onClose }: AdminDashboardPr
       if (galleryRes.ok) {
         const galleryData = await galleryRes.json();
         setGalleryImages(galleryData);
+      }
+      if (offersRes.ok) {
+        const offersData = await offersRes.json();
+        setSpecialOffers(offersData);
       }
     } catch (error) {
       console.error('Error fetching admin data:', error);
@@ -850,6 +904,137 @@ The Yard Restaurant
     }
   };
 
+  // Special Offers CRUD operations
+  const fetchSpecialOffers = useCallback(async () => {
+    try {
+      console.log('Fetching special offers...');
+      const res = await fetch('/api/offers?all=true');
+      if (res.ok) {
+        const data = await res.json();
+        console.log('Special offers received:', data.length, 'offers');
+        setSpecialOffers(data);
+      } else {
+        console.error('Failed to fetch special offers:', res.status);
+      }
+    } catch (error) {
+      console.error('Error fetching special offers:', error);
+    }
+  }, []);
+
+  const handleAddOffer = () => {
+    setIsAddingOffer(true);
+    setEditingOffer(null);
+    setOfferFormData({
+      title: '',
+      titleFr: '',
+      description: '',
+      descriptionFr: '',
+      icon: '🎁',
+      isActive: true,
+    });
+  };
+
+  const handleEditOffer = (offer: SpecialOffer) => {
+    setEditingOffer(offer);
+    setIsAddingOffer(false);
+    setOfferFormData({
+      title: offer.title,
+      titleFr: offer.titleFr || '',
+      description: offer.description,
+      descriptionFr: offer.descriptionFr || '',
+      icon: offer.icon,
+      isActive: offer.isActive,
+    });
+  };
+
+  const handleSaveOffer = async () => {
+    if (!offerFormData.title || !offerFormData.description) {
+      toast.error('Title and description are required');
+      return;
+    }
+
+    setSavingOffer(true);
+    try {
+      const url = isAddingOffer ? '/api/offers' : `/api/offers/${editingOffer?.id}`;
+      const method = isAddingOffer ? 'POST' : 'PUT';
+      
+      console.log('Saving special offer:', { url, method, data: offerFormData });
+
+      const res = await fetch(url, {
+        method,
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(offerFormData),
+      });
+
+      const responseData = await res.json();
+      console.log('Special offer save response:', responseData);
+
+      if (res.ok) {
+        toast.success(isAddingOffer ? 'Special offer added!' : 'Special offer updated!');
+        setIsAddingOffer(false);
+        setEditingOffer(null);
+        setOfferFormData({
+          title: '',
+          titleFr: '',
+          description: '',
+          descriptionFr: '',
+          icon: '🎁',
+          isActive: true,
+        });
+        // Refresh special offers data
+        await fetchSpecialOffers();
+      } else {
+        toast.error(responseData.error || 'Failed to save special offer');
+      }
+    } catch (error) {
+      console.error('Special offer save error:', error);
+      toast.error('Failed to save special offer');
+    } finally {
+      setSavingOffer(false);
+    }
+  };
+
+  const handleDeleteOffer = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this special offer?')) return;
+    try {
+      console.log('Deleting special offer:', id);
+      const res = await fetch(`/api/offers/${id}`, { method: 'DELETE' });
+      const responseData = await res.json();
+      console.log('Special offer delete response:', responseData);
+      
+      if (res.ok) {
+        toast.success('Special offer deleted');
+        // Refresh special offers data
+        await fetchSpecialOffers();
+      } else {
+        toast.error(responseData.error || 'Failed to delete special offer');
+      }
+    } catch (error) {
+      console.error('Special offer delete error:', error);
+      toast.error('Failed to delete special offer');
+    }
+  };
+
+  const handleToggleOfferStatus = async (offer: SpecialOffer) => {
+    try {
+      const res = await fetch(`/api/offers/${offer.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ isActive: !offer.isActive }),
+      });
+      
+      if (res.ok) {
+        toast.success(`Offer ${!offer.isActive ? 'activated' : 'deactivated'}`);
+        await fetchSpecialOffers();
+      } else {
+        toast.error('Failed to update offer status');
+      }
+    } catch (error) {
+      console.error('Error toggling offer status:', error);
+      toast.error('Failed to update offer status');
+    }
+  };
+
   const handleClose = () => {
     if (onClose) onClose();
     else if (onOpenChange) onOpenChange(false);
@@ -989,6 +1174,9 @@ The Yard Restaurant
                 </TabsTrigger>
                 <TabsTrigger value="gallery" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
                   🖼️ Gallery ({galleryImages.length})
+                </TabsTrigger>
+                <TabsTrigger value="offers" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                  🎁 Offers ({specialOffers.length})
                 </TabsTrigger>
                 <TabsTrigger value="reservations" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
                   📅 Reservations ({reservations.length})
@@ -1691,6 +1879,178 @@ The Yard Restaurant
                         <ImageIcon className="h-12 w-12 text-stone-500 mx-auto mb-3" />
                         <p className="text-stone-400">No gallery images yet</p>
                         <p className="text-stone-500 text-sm">Click "Add Image" to add your first image</p>
+                      </div>
+                    )}
+                  </div>
+                </TabsContent>
+
+                {/* Special Offers Tab */}
+                <TabsContent value="offers" className="mt-0">
+                  <div className="pr-4 space-y-6">
+                    {/* Add/Edit Form */}
+                    {(isAddingOffer || editingOffer) && (
+                      <Card className="bg-stone-800 border-amber-500/50">
+                        <CardHeader className="pb-2">
+                          <CardTitle className="text-amber-400 text-base">
+                            {isAddingOffer ? 'Add Special Offer' : `Edit: ${editingOffer?.title}`}
+                          </CardTitle>
+                        </CardHeader>
+                        <CardContent className="space-y-3">
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-stone-300 text-xs">Title (English) *</Label>
+                              <Input
+                                value={offerFormData.title || ''}
+                                onChange={e => setOfferFormData({ ...offerFormData, title: e.target.value })}
+                                className="bg-stone-700 border-stone-600 text-white"
+                                placeholder="e.g., Lunch Special"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-stone-300 text-xs">Title (French)</Label>
+                              <Input
+                                value={offerFormData.titleFr || ''}
+                                onChange={e => setOfferFormData({ ...offerFormData, titleFr: e.target.value })}
+                                className="bg-stone-700 border-stone-600 text-white"
+                                placeholder="e.g., Déjeuner Spécial"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-stone-300 text-xs">Description (English) *</Label>
+                              <Textarea
+                                value={offerFormData.description || ''}
+                                onChange={e => setOfferFormData({ ...offerFormData, description: e.target.value })}
+                                className="bg-stone-700 border-stone-600 text-white"
+                                rows={2}
+                                placeholder="e.g., 20% off all main courses"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-stone-300 text-xs">Description (French)</Label>
+                              <Textarea
+                                value={offerFormData.descriptionFr || ''}
+                                onChange={e => setOfferFormData({ ...offerFormData, descriptionFr: e.target.value })}
+                                className="bg-stone-700 border-stone-600 text-white"
+                                rows={2}
+                                placeholder="e.g., 20% de réduction"
+                              />
+                            </div>
+                          </div>
+                          <div className="grid grid-cols-2 gap-3">
+                            <div>
+                              <Label className="text-stone-300 text-xs">Icon</Label>
+                              <Select
+                                value={offerFormData.icon || '🎁'}
+                                onValueChange={v => setOfferFormData({ ...offerFormData, icon: v })}
+                              >
+                                <SelectTrigger className="bg-stone-700 border-stone-600 text-white">
+                                  <SelectValue />
+                                </SelectTrigger>
+                                <SelectContent className="bg-stone-700">
+                                  {offerIcons.map(icon => (
+                                    <SelectItem key={icon.value} value={icon.value}>
+                                      {icon.value} {icon.label}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+                            <div className="flex items-center gap-2 pt-6">
+                              <Switch
+                                checked={offerFormData.isActive ?? true}
+                                onCheckedChange={v => setOfferFormData({ ...offerFormData, isActive: v })}
+                              />
+                              <Label className="text-stone-300 text-xs">Active (show on website)</Label>
+                            </div>
+                          </div>
+                          <div className="flex gap-2">
+                            <Button onClick={handleSaveOffer} disabled={savingOffer} className="bg-amber-600 hover:bg-amber-500">
+                              {savingOffer ? 'Saving...' : 'Save'}
+                            </Button>
+                            <Button
+                              variant="outline"
+                              onClick={() => { setEditingOffer(null); setIsAddingOffer(false); }}
+                              className="border-stone-600"
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    )}
+
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+                          <Gift className="h-5 w-5" />
+                          Special Offers Management
+                        </h3>
+                        <p className="text-stone-400 text-sm">Manage special offers shown on the website</p>
+                      </div>
+                      <Button onClick={handleAddOffer} className="bg-amber-600 hover:bg-amber-500">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Add Offer
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                      {specialOffers.map((offer) => (
+                        <div
+                          key={offer.id}
+                          className={`bg-stone-800 border rounded-lg overflow-hidden transition-all ${
+                            offer.isActive ? 'border-amber-500/50 hover:border-amber-500' : 'border-stone-700 opacity-60'
+                          }`}
+                        >
+                          <div className="h-20 bg-gradient-to-br from-amber-900/30 to-stone-700 flex items-center justify-center">
+                            <span className="text-4xl">{offer.icon}</span>
+                          </div>
+                          <div className="p-3">
+                            <div className="flex items-center gap-2 mb-1">
+                              <span className="text-white font-medium text-sm truncate">{offer.title}</span>
+                              <Badge className={`${offer.isActive ? 'bg-green-600' : 'bg-stone-600'} text-white text-xs`}>
+                                {offer.isActive ? 'Active' : 'Inactive'}
+                              </Badge>
+                            </div>
+                            <p className="text-stone-400 text-xs line-clamp-2 mb-2">{offer.description}</p>
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleEditOffer(offer)}
+                                className="text-blue-400 hover:bg-stone-700 h-7 w-7 p-0"
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleToggleOfferStatus(offer)}
+                                className={`${offer.isActive ? 'text-orange-400' : 'text-green-400'} hover:bg-stone-700 h-7 px-2`}
+                                title={offer.isActive ? 'Deactivate' : 'Activate'}
+                              >
+                                {offer.isActive ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => handleDeleteOffer(offer.id)}
+                                className="text-red-400 hover:bg-stone-700 h-7 w-7 p-0"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </Button>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+
+                    {specialOffers.length === 0 && (
+                      <div className="text-center py-12 border-2 border-dashed border-stone-600 rounded-lg">
+                        <Gift className="h-12 w-12 text-stone-500 mx-auto mb-3" />
+                        <p className="text-stone-400">No special offers yet</p>
+                        <p className="text-stone-500 text-sm">Click "Add Offer" to create your first special offer</p>
                       </div>
                     )}
                   </div>
