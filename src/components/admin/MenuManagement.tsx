@@ -1158,29 +1158,29 @@ The Yard Restaurant
 
             {/* Main Tabs */}
             <Tabs defaultValue="payments" className="flex-1 flex flex-col overflow-hidden min-h-0">
-              <TabsList className="bg-stone-800 w-full flex-wrap h-auto gap-1 p-1 shrink-0">
-                <TabsTrigger value="payments" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+              <TabsList className="bg-stone-800 w-full flex-wrap h-auto gap-1 p-1 shrink-0 overflow-x-auto">
+                <TabsTrigger value="payments" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   💳 Payments ({stats.pendingPayments})
                 </TabsTrigger>
-                <TabsTrigger value="orders" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                <TabsTrigger value="orders" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   📦 Orders ({orders.length})
                 </TabsTrigger>
-                <TabsTrigger value="menu" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                <TabsTrigger value="menu" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   🍽️ Menu ({menuItems.length})
                 </TabsTrigger>
-                <TabsTrigger value="chefs-picks" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
-                  👨‍🍳 Chef's Picks ({featuredItems.length})
-                </TabsTrigger>
-                <TabsTrigger value="gallery" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
-                  🖼️ Gallery ({galleryImages.length})
-                </TabsTrigger>
-                <TabsTrigger value="offers" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                <TabsTrigger value="offers" className="data-[state=active]:bg-green-600 px-3 py-2 text-sm whitespace-nowrap border border-green-500/50 bg-green-900/30">
                   🎁 Offers ({specialOffers.length})
                 </TabsTrigger>
-                <TabsTrigger value="reservations" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                <TabsTrigger value="chefs-picks" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
+                  👨‍🍳 Chef's Picks ({featuredItems.length})
+                </TabsTrigger>
+                <TabsTrigger value="gallery" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
+                  🖼️ Gallery ({galleryImages.length})
+                </TabsTrigger>
+                <TabsTrigger value="reservations" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   📅 Reservations ({reservations.length})
                 </TabsTrigger>
-                <TabsTrigger value="news" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm">
+                <TabsTrigger value="news" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   📰 News ({newsItems.length})
                 </TabsTrigger>
               </TabsList>
