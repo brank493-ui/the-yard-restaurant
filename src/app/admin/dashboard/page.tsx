@@ -42,6 +42,7 @@ import ChefPicksManager from '@/components/admin/ChefPicksManager';
 import MenuManager from '@/components/admin/MenuManager';
 import GalleryManager from '@/components/admin/GalleryManager';
 import OffersManager from '@/components/admin/OffersManager';
+import NewsManager from '@/components/admin/NewsManager';
 import { useAdminRealtime } from '@/hooks/useAdminSSE';
 import { DailyStats } from '@/lib/services/adminService';
 
@@ -136,6 +137,7 @@ const navItems = [
   { id: 'payments', label: 'Payments', icon: CreditCard },
   { id: 'chefpicks', label: "Chef's Picks", icon: ChefHat },
   { id: 'offers', label: 'Special Offers', icon: Gift },
+  { id: 'news', label: 'Latest News', icon: FileText },
   { id: 'menu', label: 'Menu', icon: Menu },
   { id: 'gallery', label: 'Gallery', icon: Image },
   { id: 'analytics', label: 'Analytics', icon: BarChart3 },
@@ -1182,6 +1184,11 @@ export default function AdminDashboard() {
           {/* ============== SPECIAL OFFERS SECTION ============== */}
           {activeSection === 'offers' && (
             <OffersManager />
+          )}
+          
+          {/* ============== LATEST NEWS SECTION ============== */}
+          {activeSection === 'news' && (
+            <NewsManager />
           )}
           
           {/* ============== LOGS SECTION ============== */}
