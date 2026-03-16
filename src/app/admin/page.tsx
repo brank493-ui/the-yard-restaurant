@@ -17,7 +17,7 @@ import {
   Users, Package, Calendar, DollarSign, Clock, CheckCircle, AlertCircle, CreditCard, 
   Loader2, Search, ChevronLeft, ChevronRight, Download, Bell, BarChart3, Eye, 
   LogOut, Menu, Home, Utensils, MessageSquare, ArrowLeft, X, Image, Star, 
-  Edit, Trash2, Plus, Save, ChefHat
+  Edit, Trash2, Plus, Save, ChefHat, Gift, FileText
 } from 'lucide-react';
 import { format, startOfDay, endOfDay } from 'date-fns';
 
@@ -232,6 +232,8 @@ export default function AdminDashboard() {
     { id: 'payments', icon: CreditCard, label: 'Payments' },
     { id: 'users', icon: Users, label: 'Users' },
     { id: 'reviews', icon: MessageSquare, label: 'Reviews' },
+    { id: 'offers', icon: Gift, label: 'Special Offers' },
+    { id: 'news', icon: FileText, label: 'Latest News' },
     { id: 'menu', icon: Utensils, label: 'Menu' },
     { id: 'recommendations', icon: ChefHat, label: 'Chef\'s Picks' },
     { id: 'gallery', icon: Image, label: 'Gallery' },
@@ -395,6 +397,56 @@ export default function AdminDashboard() {
                       </div>
                     ))}
                   </div>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* SPECIAL OFFERS */}
+          {activeSection === 'offers' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-white font-medium">Special Offers</h3>
+                <Button size="sm" className="bg-amber-500 hover:bg-amber-600">
+                  <Plus className="w-4 h-4 mr-2" />Add Offer
+                </Button>
+              </div>
+              <Card className="bg-gray-900 border-gray-800">
+                <CardContent className="p-6 text-center">
+                  <Gift className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                  <p className="text-white font-medium mb-1">Manage Special Offers</p>
+                  <p className="text-gray-400 text-sm mb-4">Create and manage promotional offers displayed on the website</p>
+                  <Button 
+                    onClick={() => router.push('/admin/dashboard')}
+                    className="bg-amber-500 hover:bg-amber-600"
+                  >
+                    Open Full Offers Manager
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
+          )}
+          
+          {/* LATEST NEWS */}
+          {activeSection === 'news' && (
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h3 className="text-white font-medium">Latest News</h3>
+                <Button size="sm" className="bg-amber-500 hover:bg-amber-600">
+                  <Plus className="w-4 h-4 mr-2" />Add News
+                </Button>
+              </div>
+              <Card className="bg-gray-900 border-gray-800">
+                <CardContent className="p-6 text-center">
+                  <FileText className="w-12 h-12 text-amber-500 mx-auto mb-3" />
+                  <p className="text-white font-medium mb-1">Manage Latest News</p>
+                  <p className="text-gray-400 text-sm mb-4">Create and manage news announcements displayed on the website</p>
+                  <Button 
+                    onClick={() => router.push('/admin/dashboard')}
+                    className="bg-amber-500 hover:bg-amber-600"
+                  >
+                    Open Full News Manager
+                  </Button>
                 </CardContent>
               </Card>
             </div>
