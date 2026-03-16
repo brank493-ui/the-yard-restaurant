@@ -8,10 +8,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
-import { Image as ImageIcon, Trash2, Plus, Loader2, ExternalLink, Copy } from 'lucide-react';
+import { Image as ImageIcon, Trash2, Plus, Loader2, ExternalLink, Copy, Edit, Check } from 'lucide-react';
 import { toast } from 'sonner';
 import { db } from '@/lib/firebase';
-import { collection, query, orderBy, onSnapshot, doc, deleteDoc, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, doc, deleteDoc, addDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 
 interface GalleryImage {
   id: string;
@@ -21,11 +21,34 @@ interface GalleryImage {
   createdAt: Date;
 }
 
+const categoryLabels: Record<string, string> = {
+  restaurant: 'Restaurant',
+  food: 'Food',
+  events: 'Events',
+  team: 'Our Team',
+  interior: 'Interior',
+  terrace: 'Terrace',
+  bar: 'Bar',
+};
+
+const categories = [
+  { value: 'restaurant', label: 'Restaurant', icon: '🏠' },
+  { value: 'food', label: 'Food', icon: '🍽️' },
+  { value: 'events', label: 'Events', icon: '🎉' },
+  { value: 'team', label: 'Our Team', icon: '👥' },
+  { value: 'interior', label: 'Interior', icon: '🛋️' },
+  { value: 'terrace', label: 'Terrace', icon: '🌳' },
+  { value: 'bar', label: 'Bar', icon: '🍸' },
+];
+
 export default function GalleryManager() {
   const [images, setImages] = useState<GalleryImage[]>([]);
   const [loading, setLoading] = useState(true);
   const [addDialogOpen, setAddDialogOpen] = useState(false);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [editingImage, setEditingImage] = useState<GalleryImage | null>(null);
   const [newImage, setNewImage] = useState({ url: '', title: '', category: 'restaurant' });
+  const [editFormData, setEditFormData] = useState({ url: '', title: '', category: 'restaurant' });
   const [uploading, setUploading] = useState(false);
 
   // Real-time gallery listener
@@ -67,7 +90,7 @@ export default function GalleryManager() {
         category: newImage.category,
         createdAt: serverTimestamp(),
       });
-      toast.success('Image added to gallery');
+      toast.success('Image added to gallery - now visible on website!');
       setNewImage({ url: '', title: '', category: 'restaurant' });
       setAddDialogOpen(false);
     } catch (error) {
@@ -77,15 +100,51 @@ export default function GalleryManager() {
     }
   };
 
+  // Open edit dialog
+  const openEditDialog = (image: GalleryImage) => {
+    setEditingImage(image);
+    setEditFormData({
+      url: image.url,
+      title: image.title,
+      category: image.category,
+    });
+    setEditDialogOpen(true);
+  };
+
+  // Edit image
+  const handleEditImage = async () => {
+    if (!db || !editingImage || !editFormData.url) {
+      toast.error('Please enter an image URL');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await updateDoc(doc(db, 'gallery', editingImage.id), {
+        url: editFormData.url,
+        title: editFormData.title || 'Gallery Image',
+        category: editFormData.category,
+        updatedAt: serverTimestamp(),
+      });
+      toast.success('Image updated - changes visible on website!');
+      setEditDialogOpen(false);
+      setEditingImage(null);
+    } catch (error) {
+      toast.error('Failed to update image');
+    } finally {
+      setUploading(false);
+    }
+  };
+
   // Delete image
   const handleDeleteImage = async (image: GalleryImage) => {
     if (!db) return;
     
-    if (!confirm('Are you sure you want to delete this image?')) return;
+    if (!confirm(`Are you sure you want to delete "${image.title}"? This will remove it from the website gallery.`)) return;
     
     try {
       await deleteDoc(doc(db, 'gallery', image.id));
-      toast.success('Image removed from gallery');
+      toast.success('Image removed from gallery and website');
     } catch (error) {
       toast.error('Failed to delete image');
     }
@@ -95,16 +154,6 @@ export default function GalleryManager() {
   const copyUrl = (url: string) => {
     navigator.clipboard.writeText(url);
     toast.success('URL copied to clipboard');
-  };
-
-  const categoryLabels: Record<string, string> = {
-    restaurant: 'Restaurant',
-    food: 'Food',
-    events: 'Events',
-    team: 'Our Team',
-    interior: 'Interior',
-    terrace: 'Terrace',
-    bar: 'Bar',
   };
 
   if (loading) {
@@ -119,36 +168,42 @@ export default function GalleryManager() {
     <div className="space-y-6">
       <Card className="bg-stone-800 border-stone-700">
         <CardHeader className="border-b border-stone-700">
-          <div className="flex items-center justify-between">
-            <CardTitle className="text-white flex items-center gap-2">
-              <ImageIcon className="h-5 w-5 text-blue-400" />
-              Gallery Management
-              <Badge className="bg-stone-600 text-white ml-2">{images.length} images</Badge>
-            </CardTitle>
-            <Button
-              onClick={() => setAddDialogOpen(true)}
-              className="bg-amber-600 hover:bg-amber-500"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Add Image
-            </Button>
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div>
+              <CardTitle className="text-white flex items-center gap-2 text-xl">
+                <ImageIcon className="h-6 w-6 text-purple-400" />
+                Gallery Management
+              </CardTitle>
+              <p className="text-stone-400 text-sm mt-1">
+                Manage images that appear in the website gallery. Changes sync instantly.
+              </p>
+            </div>
+            <div className="flex items-center gap-3">
+              <Badge className="bg-purple-600 text-white">{images.length} images</Badge>
+              <Button
+                onClick={() => setAddDialogOpen(true)}
+                className="bg-purple-600 hover:bg-purple-500"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Add Image
+              </Button>
+            </div>
           </div>
-          <p className="text-stone-400 text-sm">Manage images that appear in the website gallery section</p>
         </CardHeader>
-        <CardContent className="p-4">
+        <CardContent className="p-6">
           {images.length === 0 ? (
-            <div className="text-center py-12 text-stone-500">
-              <ImageIcon className="h-12 w-12 mx-auto mb-2 opacity-50" />
-              <p>No images in gallery</p>
-              <p className="text-sm">Click "Add Image" to add images</p>
+            <div className="text-center py-16 text-stone-500">
+              <ImageIcon className="h-16 w-16 mx-auto mb-4 opacity-50" />
+              <p className="text-xl">No images in gallery</p>
+              <p className="text-sm mt-2">Click "Add Image" to add images to the website gallery</p>
             </div>
           ) : (
-            <ScrollArea className="h-[500px]">
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+            <ScrollArea className="h-[550px]">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pr-2">
                 {images.map(image => (
                   <div 
                     key={image.id} 
-                    className="group relative rounded-lg overflow-hidden border border-stone-600 bg-stone-700/50"
+                    className="group relative rounded-xl overflow-hidden border border-stone-600 bg-stone-700/50 hover:border-purple-500/50 transition-all"
                   >
                     <div className="aspect-square relative">
                       <img 
@@ -160,7 +215,7 @@ export default function GalleryManager() {
                         }}
                       />
                       {/* Overlay on hover */}
-                      <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                      <div className="absolute inset-0 bg-black/70 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
                         <Button
                           size="sm"
                           variant="outline"
@@ -180,6 +235,14 @@ export default function GalleryManager() {
                         <Button
                           size="sm"
                           variant="outline"
+                          onClick={() => openEditDialog(image)}
+                          className="bg-blue-600 border-blue-500 text-white hover:bg-blue-500"
+                        >
+                          <Edit className="w-4 h-4" />
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
                           onClick={() => handleDeleteImage(image)}
                           className="bg-red-600 border-red-500 text-white hover:bg-red-500"
                         >
@@ -187,9 +250,9 @@ export default function GalleryManager() {
                         </Button>
                       </div>
                     </div>
-                    <div className="p-2">
-                      <p className="text-white text-sm font-medium truncate">{image.title}</p>
-                      <Badge className="bg-stone-600 text-xs mt-1">
+                    <div className="p-4">
+                      <p className="text-white font-medium truncate text-lg">{image.title}</p>
+                      <Badge className="bg-stone-600 text-sm mt-2">
                         {categoryLabels[image.category] || image.category}
                       </Badge>
                     </div>
@@ -203,17 +266,17 @@ export default function GalleryManager() {
 
       {/* Add Image Dialog */}
       <Dialog open={addDialogOpen} onOpenChange={setAddDialogOpen}>
-        <DialogContent className="bg-stone-800 border-stone-700 text-white">
+        <DialogContent className="bg-stone-800 border-stone-700 text-white max-w-md">
           <DialogHeader>
-            <DialogTitle>Add Image to Gallery</DialogTitle>
+            <DialogTitle className="text-xl">Add Image to Gallery</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4">
+          <div className="space-y-5">
             <div>
               <Label className="text-stone-400 text-sm">Image URL *</Label>
               <Input
                 value={newImage.url}
                 onChange={(e) => setNewImage({ ...newImage, url: e.target.value })}
-                className="bg-stone-700 border-stone-600 text-white"
+                className="bg-stone-700 border-stone-600 text-white mt-2"
                 placeholder="https://example.com/image.jpg"
               />
             </div>
@@ -222,7 +285,7 @@ export default function GalleryManager() {
               <Input
                 value={newImage.title}
                 onChange={(e) => setNewImage({ ...newImage, title: e.target.value })}
-                className="bg-stone-700 border-stone-600 text-white"
+                className="bg-stone-700 border-stone-600 text-white mt-2"
                 placeholder="Image title"
               />
             </div>
@@ -231,23 +294,21 @@ export default function GalleryManager() {
               <select
                 value={newImage.category}
                 onChange={(e) => setNewImage({ ...newImage, category: e.target.value })}
-                className="w-full px-3 py-2 rounded-md bg-stone-700 border border-stone-600 text-white"
+                className="w-full px-4 py-3 rounded-lg bg-stone-700 border border-stone-600 text-white mt-2"
               >
-                <option value="restaurant">Restaurant</option>
-                <option value="food">Food</option>
-                <option value="events">Events</option>
-                <option value="team">Our Team</option>
-                <option value="interior">Interior</option>
-                <option value="terrace">Terrace</option>
-                <option value="bar">Bar</option>
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.icon} {cat.label}
+                  </option>
+                ))}
               </select>
             </div>
             {newImage.url && (
-              <div className="rounded-lg overflow-hidden border border-stone-600">
+              <div className="rounded-xl overflow-hidden border border-stone-600">
                 <img 
                   src={newImage.url} 
                   alt="Preview" 
-                  className="w-full h-40 object-cover"
+                  className="w-full h-48 object-cover"
                   onError={(e) => {
                     (e.target as HTMLImageElement).src = '/placeholder.png';
                   }}
@@ -255,14 +316,14 @@ export default function GalleryManager() {
               </div>
             )}
           </div>
-          <DialogFooter>
+          <DialogFooter className="gap-2 mt-4">
             <Button variant="outline" onClick={() => setAddDialogOpen(false)} className="border-stone-600 text-stone-400">
               Cancel
             </Button>
             <Button 
               onClick={handleAddImage} 
               disabled={uploading || !newImage.url}
-              className="bg-amber-600 hover:bg-amber-500"
+              className="bg-purple-600 hover:bg-purple-500"
             >
               {uploading ? (
                 <>
@@ -273,6 +334,83 @@ export default function GalleryManager() {
                 <>
                   <Plus className="w-4 h-4 mr-2" />
                   Add Image
+                </>
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Image Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="bg-stone-800 border-stone-700 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-xl">Edit Gallery Image</DialogTitle>
+          </DialogHeader>
+          <div className="space-y-5">
+            <div>
+              <Label className="text-stone-400 text-sm">Image URL *</Label>
+              <Input
+                value={editFormData.url}
+                onChange={(e) => setEditFormData({ ...editFormData, url: e.target.value })}
+                className="bg-stone-700 border-stone-600 text-white mt-2"
+                placeholder="https://example.com/image.jpg"
+              />
+            </div>
+            <div>
+              <Label className="text-stone-400 text-sm">Title</Label>
+              <Input
+                value={editFormData.title}
+                onChange={(e) => setEditFormData({ ...editFormData, title: e.target.value })}
+                className="bg-stone-700 border-stone-600 text-white mt-2"
+                placeholder="Image title"
+              />
+            </div>
+            <div>
+              <Label className="text-stone-400 text-sm">Category</Label>
+              <select
+                value={editFormData.category}
+                onChange={(e) => setEditFormData({ ...editFormData, category: e.target.value })}
+                className="w-full px-4 py-3 rounded-lg bg-stone-700 border border-stone-600 text-white mt-2"
+              >
+                {categories.map(cat => (
+                  <option key={cat.value} value={cat.value}>
+                    {cat.icon} {cat.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            {editFormData.url && (
+              <div className="rounded-xl overflow-hidden border border-stone-600">
+                <img 
+                  src={editFormData.url} 
+                  alt="Preview" 
+                  className="w-full h-48 object-cover"
+                  onError={(e) => {
+                    (e.target as HTMLImageElement).src = '/placeholder.png';
+                  }}
+                />
+              </div>
+            )}
+          </div>
+          <DialogFooter className="gap-2 mt-4">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)} className="border-stone-600 text-stone-400">
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleEditImage} 
+              disabled={uploading || !editFormData.url}
+              className="bg-blue-600 hover:bg-blue-500"
+            >
+              {uploading ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Check className="w-4 h-4 mr-2" />
+                  Save Changes
                 </>
               )}
             </Button>
