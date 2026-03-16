@@ -1180,8 +1180,8 @@ The Yard Restaurant
                 <TabsTrigger value="reservations" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
                   📅 Reservations ({reservations.length})
                 </TabsTrigger>
-                <TabsTrigger value="news" className="data-[state=active]:bg-amber-600 px-3 py-2 text-sm whitespace-nowrap">
-                  📰 News ({newsItems.length})
+                <TabsTrigger value="news" className="data-[state=active]:bg-blue-600 px-3 py-2 text-sm whitespace-nowrap border border-blue-500/50 bg-blue-900/30">
+                  📰 Latest News ({newsItems.length})
                 </TabsTrigger>
               </TabsList>
 
@@ -2151,7 +2151,13 @@ The Yard Restaurant
                     )}
 
                     <div className="flex justify-between items-center">
-                      <h3 className="text-lg font-bold text-amber-400">News & Announcements</h3>
+                      <div>
+                        <h3 className="text-lg font-bold text-amber-400 flex items-center gap-2">
+                          <FileText className="h-5 w-5" />
+                          Latest News Management
+                        </h3>
+                        <p className="text-stone-400 text-sm">Manage news and announcements shown on the website</p>
+                      </div>
                       <Button onClick={handleAddNews} className="bg-amber-600 hover:bg-amber-500">
                         <Plus className="h-4 w-4 mr-2" />
                         Add News
